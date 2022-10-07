@@ -21,6 +21,14 @@ namespace port {
 // ------------------ Threading -------------------
 
 // A Mutex represents an exclusive lock.
+
+// TODO(jorlow)。其中很多都属于环境类，而不是
+// 这里。我们应该试着移动它们，看看是否会影响性能。
+
+// ------------------ 线程 -------------------
+
+// 一个Mutex代表一个独占锁。
+
 class LOCKABLE Mutex {
  public:
   Mutex();
@@ -62,12 +70,22 @@ class CondVar {
 
 // Store the snappy compression of "input[0,input_length-1]" in *output.
 // Returns false if snappy is not supported by this port.
+// 在 *output 中存储 "input[0,input_length-1]" 的 snappy 压缩。
+//
+// 如果这个端口不支持snappy，则返回false。
+// 将 input[intput_length] 的内容进行压缩, 并且将压缩内容放入到
+// output 中去, 如果不支持 snappy 压缩则返回false
 bool Snappy_Compress(const char* input, size_t input_length,
                      std::string* output);
 
 // If input[0,input_length-1] looks like a valid snappy compressed
 // buffer, store the size of the uncompressed data in *result and
 // return true.  Else return false.
+//
+// input: input 指针指向的数据
+// length: input_length 表明待解压缩的数据的长度
+// 如果无法按照Snappy解压缩, 则返回false
+// function: 计算解压缩后的数据长度, 结果存储在 result 中.
 bool Snappy_GetUncompressedLength(const char* input, size_t length,
                                   size_t* result);
 
@@ -78,6 +96,18 @@ bool Snappy_GetUncompressedLength(const char* input, size_t length,
 // REQUIRES: at least the first "n" bytes of output[] must be writable
 // where "n" is the result of a successful call to
 // Snappy_GetUncompressedLength.
+//
+// 尝试将输入[0,input_length-1]快速解压到*输出。
+// 如果成功则返回true，如果输入无效则返回false。
+// 压缩的数据。
+//
+// 要求：至少输出[]的前 "n "个字节必须是可写的。
+// 其中 "n "是成功调用Snappy的结果。
+// Snappy_GetUncompressedLength。
+//
+// input_data: 参数指针指向的数据
+// input_length: 表明待解压缩的数据的长度
+// 如果无法进行Snappy解压缩, 则返回
 bool Snappy_Uncompress(const char* input_data, size_t input_length,
                        char* output);
 

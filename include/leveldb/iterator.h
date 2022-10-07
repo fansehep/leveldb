@@ -32,6 +32,7 @@ class LEVELDB_EXPORT Iterator {
 
   // An iterator is either positioned at a key/value pair, or
   // not valid.  This method returns true iff the iterator is valid.
+  //* 判断迭代器是否有效
   virtual bool Valid() const = 0;
 
   // Position at the first key in the source.  The iterator is Valid()
@@ -50,11 +51,14 @@ class LEVELDB_EXPORT Iterator {
   // Moves to the next entry in the source.  After this call, Valid() is
   // true iff the iterator was not positioned at the last entry in the source.
   // REQUIRES: Valid()
+  //* 或许可以重载 operator ++
+  //* 将迭代器移动到下一个元素
   virtual void Next() = 0;
 
   // Moves to the previous entry in the source.  After this call, Valid() is
   // true iff the iterator was not positioned at the first entry in source.
   // REQUIRES: Valid()
+  //
   virtual void Prev() = 0;
 
   // Return the key for the current entry.  The underlying storage for

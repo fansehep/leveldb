@@ -11,13 +11,27 @@
 namespace leveldb {
 namespace log {
 
+
+
+/*
+ * |  crc(4) | length(2) | type(1) | content |
+ *
+ *
+ *
+ *
+ */
+
 enum RecordType {
   // Zero is reserved for preallocated files
   kZeroType = 0,
-
+  //* 表示一条记录完整地写到了一个块上
   kFullType = 1,
 
   // For fragments
+  //* 当一条记录跨几个块时, 
+  //* kFirstType 表示该条记录的第一部分
+  //* kMiddleType 表示该条记录的中间部分
+  //* kLastType 表示该条记录的最后一部分
   kFirstType = 2,
   kMiddleType = 3,
   kLastType = 4

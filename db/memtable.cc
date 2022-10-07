@@ -87,6 +87,8 @@ void MemTable::Add(SequenceNumber s, ValueType type, const Slice& key,
   const size_t encoded_len = VarintLength(internal_key_size) +
                              internal_key_size + VarintLength(val_size) +
                              val_size;
+  //* 分配内存并将数据按照下图格式组织之后放入到该段内存
+  //* | key_len | key | sequence_value_type | value_len | value |
   char* buf = arena_.Allocate(encoded_len);
   char* p = EncodeVarint32(buf, internal_key_size);
   std::memcpy(p, key.data(), key_size);
@@ -101,7 +103,9 @@ void MemTable::Add(SequenceNumber s, ValueType type, const Slice& key,
 
 bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
   Slice memkey = key.memtable_key();
+  //* 生成一个 SkipList Iterator
   Table::Iterator iter(&table_);
+  //* 在 SkipList 中查找
   iter.Seek(memkey.data());
   if (iter.Valid()) {
     // entry format is:
@@ -115,7 +119,9 @@ bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
     // all entries with overly large sequence numbers.
     const char* entry = iter.key();
     uint32_t key_length;
+    //* 获取 key 的值
     const char* key_ptr = GetVarint32Ptr(entry, entry + 5, &key_length);
+    //* 如果判断 key 完全相同, 则继续取出 valuetype, 判断是否已经删除
     if (comparator_.comparator.user_comparator()->Compare(
             Slice(key_ptr, key_length - 8), key.user_key()) == 0) {
       // Correct user key

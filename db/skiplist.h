@@ -45,6 +45,10 @@ class SkipList {
   // Create a new SkipList object that will use "cmp" for comparing keys,
   // and will allocate memory using "*arena".  Objects allocated in the arena
   // must remain allocated for the lifetime of the skiplist object.
+  //*
+  // 创建一个新的SkipList对象，它将使用 "cmp "来比较键值。
+  // 并将使用 "*arena "来分配内存。 在竞技场中分配的对象
+  // 必须在skiplist对象的生命周期内保持分配。
   explicit SkipList(Comparator cmp, Arena* arena);
 
   SkipList(const SkipList&) = delete;
@@ -52,6 +56,8 @@ class SkipList {
 
   // Insert key into the list.
   // REQUIRES: nothing that compares equal to key is currently in the list.
+  // 在列表中插入键。
+  // 要求：当前列表中没有与key比较相等的内容。
   void Insert(const Key& key);
 
   // Returns true iff an entry that compares equal to key is in the list.
@@ -73,10 +79,12 @@ class SkipList {
 
     // Advances to the next position.
     // REQUIRES: Valid()
+    //* 指向当前节点的下一个节点
     void Next();
 
     // Advances to the previous position.
     // REQUIRES: Valid()
+    //* 指向当前节点的前一个节点
     void Prev();
 
     // Advance to the first entry with a key >= target
@@ -84,10 +92,12 @@ class SkipList {
 
     // Position at the first entry in list.
     // Final state of iterator is Valid() iff list is not empty.
+    //* 指向第一个有效的节点 (即不包含头节点的第一个节点)
     void SeekToFirst();
 
     // Position at the last entry in list.
     // Final state of iterator is Valid() iff list is not empty.
+    //* 指向最后一个有效节点
     void SeekToLast();
 
    private:
@@ -115,6 +125,13 @@ class SkipList {
   //
   // If prev is non-null, fills prev[level] with pointer to previous
   // node at "level" for every level in [0..max_height_-1].
+  //
+  //* 返回最早的节点，该节点位于键的位置或之后。
+  //* 如果没有这样的节点，则返回nullptr。
+  //*
+  //* 如果prev不是空的，将prev[level]填充到[0.max_height_]中每一级的 "level "节点的指针上。
+  //* 在[0...max_height_1]中的每一级的 "level "节点。
+
   Node* FindGreaterOrEqual(const Key& key, Node** prev) const;
 
   // Return the latest node with a key < key.
@@ -220,6 +237,7 @@ inline void SkipList<Key, Comparator>::Iterator::Prev() {
 
 template <typename Key, class Comparator>
 inline void SkipList<Key, Comparator>::Iterator::Seek(const Key& target) {
+  //* 通过调用 FindGreaterOrEqual 方法找到目标键
   node_ = list_->FindGreaterOrEqual(target, nullptr);
 }
 
@@ -240,7 +258,9 @@ template <typename Key, class Comparator>
 int SkipList<Key, Comparator>::RandomHeight() {
   // Increase height with probability 1 in kBranching
   static const unsigned int kBranching = 4;
+  //* 初始层高为 1
   int height = 1;
+  //* kMaxHeight: 最大层高 12, 通过概率确定是否需要增加层高
   while (height < kMaxHeight && rnd_.OneIn(kBranching)) {
     height++;
   }
@@ -259,14 +279,18 @@ template <typename Key, class Comparator>
 typename SkipList<Key, Comparator>::Node*
 SkipList<Key, Comparator>::FindGreaterOrEqual(const Key& key,
                                               Node** prev) const {
+  //* 从头节点的最高层开始查找
   Node* x = head_;
   int level = GetMaxHeight() - 1;
   while (true) {
     Node* next = x->Next(level);
+    //* 如果节点中的值 < 要查找的值, 则继续通过该层链表查找下一个节点.
     if (KeyIsAfterNode(key, next)) {
       // Keep searching in this list
       x = next;
     } else {
+      //* 如果节点中的值 >= 要查找的值, 则降低层数, 在下一次层查找,
+      //* 如果已经查找到最底层, 那么就返回该节点.
       if (prev != nullptr) prev[level] = x;
       if (level == 0) {
         return next;
@@ -319,6 +343,7 @@ typename SkipList<Key, Comparator>::Node* SkipList<Key, Comparator>::FindLast()
   }
 }
 
+//* 构造函数
 template <typename Key, class Comparator>
 SkipList<Key, Comparator>::SkipList(Comparator cmp, Arena* arena)
     : compare_(cmp),
@@ -335,6 +360,9 @@ template <typename Key, class Comparator>
 void SkipList<Key, Comparator>::Insert(const Key& key) {
   // TODO(opt): We can use a barrier-free variant of FindGreaterOrEqual()
   // here since Insert() is externally synchronized.
+  //
+  // TODO（选择）。我们可以使用FindGreaterOrEqual()的一个无障碍变体。
+  // 因为Insert()是外部同步的。
   Node* prev[kMaxHeight];
   Node* x = FindGreaterOrEqual(key, prev);
 

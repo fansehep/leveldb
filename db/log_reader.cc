@@ -65,15 +65,22 @@ bool Reader::ReadRecord(Slice* record, std::string* scratch) {
   bool in_fragmented_record = false;
   // Record offset of the logical record that we're reading
   // 0 is a dummy value to make compilers happy
+  // 我们正在读取的逻辑记录的记录偏移量
+  // 0是一个假值，用来让编译器高兴。
   uint64_t prospective_record_offset = 0;
 
   Slice fragment;
   while (true) {
+    //* ReadPhysicalRecord 函数会读取 Log 文件, 之后保存读取的记录到 fragment 变量
+    //* 并且返回该条记录的类型
     const unsigned int record_type = ReadPhysicalRecord(&fragment);
 
     // ReadPhysicalRecord may have only had an empty trailer remaining in its
     // internal buffer. Calculate the offset of the next physical record now
     // that it has returned, properly accounting for its header size.
+    //* ReadPhysicalRecord可能在其内部缓冲区中只剩下一个空拖车。
+    //* 内部缓冲区中只剩下空拖车。现在计算下一条物理记录的偏移量
+    //* 它已经返回，正确地考虑到它的头的大小。
     uint64_t physical_record_offset =
         end_of_buffer_offset_ - buffer_.size() - kHeaderSize - fragment.size();
 
@@ -101,6 +108,7 @@ bool Reader::ReadRecord(Slice* record, std::string* scratch) {
         }
         prospective_record_offset = physical_record_offset;
         scratch->clear();
+        //* 如果是完整的记录 则 直接赋值给 record 并返回
         *record = fragment;
         last_record_offset_ = prospective_record_offset;
         return true;
@@ -116,11 +124,13 @@ bool Reader::ReadRecord(Slice* record, std::string* scratch) {
           }
         }
         prospective_record_offset = physical_record_offset;
+        //* 是记录的第一部分, 则先将该记录复制到 scratch, 之后继续读取该记录
         scratch->assign(fragment.data(), fragment.size());
         in_fragmented_record = true;
         break;
 
       case kMiddleType:
+        //* 如果是该记录的中间部分, 则将该部分追加到 scratch, 并继续读取
         if (!in_fragmented_record) {
           ReportCorruption(fragment.size(),
                            "missing start of fragmented record(1)");
@@ -134,6 +144,8 @@ bool Reader::ReadRecord(Slice* record, std::string* scratch) {
           ReportCorruption(fragment.size(),
                            "missing start of fragmented record(2)");
         } else {
+          //* 该记录的最后一部分, 则将该部分继续追加到 scratch, 因为已经读取到最后一部分.
+          //* 直接赋值给 record, 返回即可
           scratch->append(fragment.data(), fragment.size());
           *record = Slice(*scratch);
           last_record_offset_ = prospective_record_offset;

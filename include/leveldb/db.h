@@ -40,9 +40,21 @@ struct LEVELDB_EXPORT Range {
   Slice limit;  // Not included in the range
 };
 
+/*
+ * key的命名设计
+ * leveldb 中磁盘数据读取与缓存均以块为单位, 并且实际存储中
+ * 所有的数据记录均以 key 进行顺序存储.
+ * 根据排序结果, 相邻的key所对应的数据记录一般会存储在同一个块中,
+ * 由于该特性: 用户针对自身的应用场景需要充分考虑如何优化key
+ * 的命名设计, 从而最大限度地提升整体的读取性能.
+ * 在 key 命名时, 通过设置相同的前缀保证这些数据的key是
+ */
+
 // A DB is a persistent ordered map from keys to values.
 // A DB is safe for concurrent access from multiple threads without
 // any external synchronization.
+//* DB 是 key => value 持久性有序映射
+//* DB 对于多个线程的并发访问是线程安全的, 不需要任何同步
 class LEVELDB_EXPORT DB {
  public:
   // Open the database with the specified "name".
@@ -50,6 +62,18 @@ class LEVELDB_EXPORT DB {
   // OK on success.
   // Stores nullptr in *dbptr and returns a non-OK status on error.
   // Caller should delete *dbptr when it is no longer needed.
+
+  /*
+   * leveldb::DB* db = nullptr;
+   * leveldb::Options op;
+   * 如果没有该数据库就创建
+   * op.create_if_missing = true;
+   * leveldb::Status status = leveldb::DB::Open(op, "/tmp/test_db", &db);
+   * assert(status.ok() == true);
+   * delete db;
+   */
+  //* google code style means that every function
+  //* output args must after input args
   static Status Open(const Options& options, const std::string& name,
                      DB** dbptr);
 
@@ -70,11 +94,17 @@ class LEVELDB_EXPORT DB {
   // success, and a non-OK status on error.  It is not an error if "key"
   // did not exist in the database.
   // Note: consider setting options.sync = true.
+  //* 删除 key, 我们也认为 remove key 也是一种写操作
+  //* 但并不是真正的将数据从磁盘中删除, 而是在对应位置插入一个key的标志物
+  //* 在后续的 compaction 中才会去除这一条 key-value 记录
   virtual Status Delete(const WriteOptions& options, const Slice& key) = 0;
 
   // Apply the specified updates to the database.
   // Returns OK on success, non-OK on failure.
   // Note: consider setting options.sync = true.
+  //* 批量写入的一种方式
+  //* 更多详见 leveldb/include/leveldb/write_batch.h
+  //* 可以定义一个 WriteBatch对象, 以达到批量写入的目的
   virtual Status Write(const WriteOptions& options, WriteBatch* updates) = 0;
 
   // If the database contains an entry for "key" store the
@@ -93,6 +123,19 @@ class LEVELDB_EXPORT DB {
   //
   // Caller should delete the iterator when it is no longer needed.
   // The returned iterator should be deleted before this db is deleted.
+  //* NewIterator, 一个新的迭代器
+  // auto iter = db->NewIterator(leveldb::ReadOptions());
+  //
+  // 前向遍历: for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {}
+  // 后向遍历: for (iter->SeekToLast(); iter->Valid(); iter->Prev()) {}
+  // 当不再需要该迭代器时, 可以直接使用 delete 对该指针进行删除
+  //* simple example:
+  //* for (iter->Seek("k2"); iter->Valid() &&
+  //* iter->Key().ToString() < "k4") {
+  //* std::cout << iter->key().ToString() << ": "
+  //* << iter->value().ToString() << std::endl; }
+  //* 通过 for 循环定位到 key = "k2" 的数据, 然后通过Next向后迭代
+  //* , 并调用
   virtual Iterator* NewIterator(const ReadOptions& options) = 0;
 
   // Return a handle to the current DB state.  Iterators created with

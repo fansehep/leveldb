@@ -12,6 +12,15 @@
 
 namespace leveldb {
 
+
+/**
+ * @brief : 对 data[0:n] 返回一个 uint32_t 的值
+ * 
+ * @param data : 数据的起始地址
+ * @param n : 数据的偏移量
+ * @param seed : 
+ * @return uint32_t 
+ */
 uint32_t Hash(const char* data, size_t n, uint32_t seed);
 
 }  // namespace leveldb

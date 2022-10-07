@@ -18,13 +18,22 @@ void PutFixed64(std::string* dst, uint64_t value) {
   dst->append(buf, sizeof(buf));
 }
 
+
+//* 对uint32_t 进行压缩编码
 char* EncodeVarint32(char* dst, uint32_t v) {
   // Operate on characters as unsigneds
   uint8_t* ptr = reinterpret_cast<uint8_t*>(dst);
   static const int B = 128;
+  // 进行编码, 如果 value < 128
+  // 就只保存最后一个字节的值
   if (v < (1 << 7)) {
     *(ptr++) = v;
   } else if (v < (1 << 14)) {
+    // v | B,
+    // 例如: value(二进制表示) =  00000000 00000000 00000000 00000000
+    // 通过  value | 128 则可以得到                |--------|
+    // 这一部分的值, 然后在进行保存
+    // 下面的行为类似
     *(ptr++) = v | B;
     *(ptr++) = v >> 7;
   } else if (v < (1 << 21)) {
@@ -55,6 +64,7 @@ void PutVarint32(std::string* dst, uint32_t v) {
 char* EncodeVarint64(char* dst, uint64_t v) {
   static const int B = 128;
   uint8_t* ptr = reinterpret_cast<uint8_t*>(dst);
+  // i think 循环是好的
   while (v >= B) {
     *(ptr++) = v | B;
     v >>= 7;
@@ -87,12 +97,17 @@ const char* GetVarint32PtrFallback(const char* p, const char* limit,
                                    uint32_t* value) {
   uint32_t result = 0;
   for (uint32_t shift = 0; shift <= 28 && p < limit; shift += 7) {
+    // | 00000000 | 00000000 | 00000000 | 00000000 |
+    // 
     uint32_t byte = *(reinterpret_cast<const uint8_t*>(p));
     p++;
+    // 如果 byte | 00000000 | & (1 << 7) => 第一个字节为 1
+    // 则表示后续还有更多的字符需要格式化
     if (byte & 128) {
       // More bytes are present
       result |= ((byte & 127) << shift);
     } else {
+      // 后续没有了
       result |= (byte << shift);
       *value = result;
       return reinterpret_cast<const char*>(p);

@@ -27,6 +27,7 @@ class FileState {
   FileState() : refs_(0), size_(0) {}
 
   // No copying allowed.
+  // noncopyable
   FileState(const FileState&) = delete;
   FileState& operator=(const FileState&) = delete;
 
@@ -37,6 +38,7 @@ class FileState {
   }
 
   // Decrease the reference count. Delete if this is the last reference.
+  // 减少引用计数, 如果引用计数 <= 0, 那么就触发释放函数
   void Unref() {
     bool do_delete = false;
 
@@ -105,6 +107,15 @@ class FileState {
     return Status::OK();
   }
 
+/*
+ * vector<char*> blocks_;
+ * | 0 | -> |-----------| size: kBlockSize: 8 * 1024
+ * | 1 | -> |-----------|
+ * | 2 | -> |-----------|
+ * | 3 | -> |-----------|
+ *
+ *
+ */
   Status Append(const Slice& data) {
     const char* src = data.data();
     size_t src_len = data.size();
@@ -112,20 +123,24 @@ class FileState {
     MutexLock lock(&blocks_mutex_);
     while (src_len > 0) {
       size_t avail;
+      //* 1. 计算当前块的 offset size_ % kBlockSize;
       size_t offset = size_ % kBlockSize;
 
       if (offset != 0) {
         // There is some room in the last block.
+        //* 计算当前块的 可用空间
         avail = kBlockSize - offset;
       } else {
         // No room in the last block; push new one.
         blocks_.push_back(new char[kBlockSize]);
         avail = kBlockSize;
       }
-
+      //* 更新当前的可用空间 avali
       if (avail > src_len) {
         avail = src_len;
       }
+      //* 1. 填满当前的block, 并且 src_len -avail,
+      //* 如果还有多的, 那么就继续填满下一个
       std::memcpy(blocks_.back() + offset, src, avail);
       src_len -= avail;
       src += avail;

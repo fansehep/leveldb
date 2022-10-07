@@ -29,8 +29,22 @@ class LEVELDB_EXPORT Cache;
 
 // Create a new cache with a fixed size capacity.  This implementation
 // of Cache uses a least-recently-used eviction policy.
+// 创建一个具有固定容量的新缓存。 这个实现
+// Cache使用了一个最小最近使用的驱逐策略。
 LEVELDB_EXPORT Cache* NewLRUCache(size_t capacity);
 
+//* leveldb::ReadOptons options;
+//? fill_cache = false : 表示在遍历时, 不允许当前的
+//?   的读取操作覆盖 Cache 的内存空间.
+//* options.fill_cache = false;
+//* leveldb::Iterator* iter = db->NewIterator(options); 
+//* for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+//*   std::cout << iter->key().ToString() << ": " <<
+//*     iter->value().ToString(); 
+//* }
+//*
+//*
+//*
 class LEVELDB_EXPORT Cache {
  public:
   Cache() = default;

@@ -39,7 +39,9 @@ class BlockHandle {
   Status DecodeFrom(Slice* input);
 
  private:
+  //* 偏移量, 编码为可变长度的 64位 整型, 最多占用 10 个字节.
   uint64_t offset_;
+  //* 大小, 编码为可变长度的 64 位整型, 最多占用 10 个字节.
   uint64_t size_;
 };
 

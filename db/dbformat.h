@@ -64,6 +64,10 @@ typedef uint64_t SequenceNumber;
 
 // We leave eight bits empty at the bottom so a type and sequence#
 // can be packed together into 64-bits.
+//
+//* #include <limits>
+//* static const SequenceNumber kMaxSequenceNumber =
+//* std::numeric_limits<SequenceNumber>::max();
 static const SequenceNumber kMaxSequenceNumber = ((0x1ull << 56) - 1);
 
 struct ParsedInternalKey {
@@ -131,6 +135,9 @@ class InternalFilterPolicy : public FilterPolicy {
 // Modules in this directory should keep internal keys wrapped inside
 // the following class instead of plain strings so that we do not
 // incorrectly use string comparisons instead of an InternalKeyComparator.
+//* 这个目录中的模块应该把内部的键包在
+//* 而不是普通的字符串，这样我们就不会
+//* 错误地使用字符串比较而不是InternalKeyComparator。
 class InternalKey {
  private:
   std::string rep_;

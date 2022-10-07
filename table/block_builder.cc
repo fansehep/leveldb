@@ -69,26 +69,33 @@ Slice BlockBuilder::Finish() {
 }
 
 void BlockBuilder::Add(const Slice& key, const Slice& value) {
+  //* last_key_: 保存上一个加入的key, 用来保存公共部分
   Slice last_key_piece(last_key_);
   assert(!finished_);
   assert(counter_ <= options_->block_restart_interval);
   assert(buffer_.empty()  // No values yet?
          || options_->comparator->Compare(key, last_key_piece) > 0);
+  //* shared: 用来保存本次加入的 key 和 上一个加入的 key 的共同前缀长度.
   size_t shared = 0;
   if (counter_ < options_->block_restart_interval) {
     // See how much sharing to do with previous string
+    //* 计算相同前缀的长度
     const size_t min_length = std::min(last_key_piece.size(), key.size());
     while ((shared < min_length) && (last_key_piece[shared] == key[shared])) {
       shared++;
     }
   } else {
     // Restart compression
+    //* 如果 key-value 数量对 >= 16, 那么开启新的重启点.
     restarts_.push_back(buffer_.size());
     counter_ = 0;
   }
+  //* non_shared: 当前 key_len - shared_pre_key_len
+  //* 即非共享部分的键长度
   const size_t non_shared = key.size() - shared;
 
   // Add "<shared><non_shared><value_size>" to buffer_
+  //* 将共同前缀长度, 非共享部分长度, 值长度 分别写入 buffer_
   PutVarint32(&buffer_, shared);
   PutVarint32(&buffer_, non_shared);
   PutVarint32(&buffer_, value.size());
@@ -98,9 +105,11 @@ void BlockBuilder::Add(const Slice& key, const Slice& value) {
   buffer_.append(value.data(), value.size());
 
   // Update state
+  //* 更新 last_key_ 为当前写入的 key
   last_key_.resize(shared);
   last_key_.append(key.data() + shared, non_shared);
   assert(Slice(last_key_) == key);
+  //* 将当前 buffer_ 中写入 key-value +1.
   counter_++;
 }
 

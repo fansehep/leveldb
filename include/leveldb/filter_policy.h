@@ -65,6 +65,25 @@ class LEVELDB_EXPORT FilterPolicy {
 // ignores trailing spaces, it would be incorrect to use a
 // FilterPolicy (like NewBloomFilterPolicy) that does not ignore
 // trailing spaces in keys.
+// 返回一个新的过滤策略，该策略使用了一个Bloom过滤器，大约有
+// 指定的每个密钥的比特数。 每键比特数的一个好值是10。
+// 是10，这将产生一个假阳性率为1%的过滤器。
+//
+// 调用者必须在任何使用该结果的数据库关闭后删除该结果。
+// 结果的数据库被关闭后，调用者必须删除该结果。
+//
+// 注意：如果你使用的是一个自定义的比较器，该比较器忽略了被比较的键的某些部分。
+// 的某些部分，你就不能使用NewBloomFilterPolicy()
+// 而必须提供你自己的FilterPolicy，该Policy也忽略了
+// 键的相应部分。 例如，如果比较器
+// 忽略了尾部的空格，那么使用一个
+// 忽略键值的FilterPolicy（如NewBloomFilterPolicy）是不对的。
+// 键中的尾部空格。
+
+//* leveldb::DB* db
+//* leveldb::Options op;
+//* op.filter_policy = leveldb::NewBloomFilterPolicy(10);
+//* leveldb::Status status = leveldb::DB::Open(op, "/tmp/test_db", &db);
 LEVELDB_EXPORT const FilterPolicy* NewBloomFilterPolicy(int bits_per_key);
 
 }  // namespace leveldb

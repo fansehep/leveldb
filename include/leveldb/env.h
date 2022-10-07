@@ -71,6 +71,13 @@ class LEVELDB_EXPORT Env {
   // NotFound status when the file does not exist.
   //
   // The returned file will only be accessed by one thread at a time.
+  // 创建一个对象，按顺序读取指定名称的文件。
+  // 成功时，在*result中存储一个指向新文件的指针并返回OK。
+  // 失败时在*result中存储nullptr并返回非OK。 如果该文件不
+  // 不存在，返回非确定状态。 实现应该返回一个
+  // 当文件不存在时，返回 NotFound 状态。
+  //
+  // 返回的文件一次只能被一个线程访问。
   virtual Status NewSequentialFile(const std::string& fname,
                                    SequentialFile** result) = 0;
 
@@ -82,6 +89,14 @@ class LEVELDB_EXPORT Env {
   // not exist.
   //
   // The returned file may be concurrently accessed by multiple threads.
+  // 创建一个支持随机访问的对象，从文件中读取指定名称的
+  // 指定的名称。 一旦成功，将一个指向新文件的指针存储在
+  // *result并返回OK。 失败时，在*result中存储一个指向新文件的指针，并返回OK；失败时，在*result中存储nullptr，并并
+  //返回非OK。 如果该文件不存在，则返回非确定的
+  // 状态。 当文件不存在时，实现应该返回一个 NotFound 状态。
+  // 不存在。
+  //
+  // 返回的文件可能被多个线程同时访问。
   virtual Status NewRandomAccessFile(const std::string& fname,
                                      RandomAccessFile** result) = 0;
 
@@ -111,11 +126,15 @@ class LEVELDB_EXPORT Env {
                                    WritableFile** result);
 
   // Returns true iff the named file exists.
+  //* 底层API access
+  //* 确定文件是否存在
   virtual bool FileExists(const std::string& fname) = 0;
 
   // Store in *result the names of the children of the specified directory.
   // The names are relative to "dir".
   // Original contents of *results are dropped.
+  //* 底层API readdir
+
   virtual Status GetChildren(const std::string& dir,
                              std::vector<std::string>* result) = 0;
   // Delete the named file.
@@ -127,6 +146,7 @@ class LEVELDB_EXPORT Env {
   //
   // A future release will remove DeleteDir and the default implementation of
   // RemoveDir.
+  //* 底层API: rename
   virtual Status RemoveFile(const std::string& fname);
 
   // DEPRECATED: Modern Env implementations should override RemoveFile instead.
@@ -136,9 +156,11 @@ class LEVELDB_EXPORT Env {
   // code should call RemoveFile.
   //
   // A future release will remove this method.
+  //* 底层API: unlink
   virtual Status DeleteFile(const std::string& fname);
 
   // Create the specified directory.
+  //* 底层API: mkdir
   virtual Status CreateDir(const std::string& dirname) = 0;
 
   // Delete the specified directory.
@@ -162,6 +184,8 @@ class LEVELDB_EXPORT Env {
   virtual Status DeleteDir(const std::string& dirname);
 
   // Store the size of fname in *file_size.
+  //* 底层 API
+  //* stat
   virtual Status GetFileSize(const std::string& fname, uint64_t* file_size) = 0;
 
   // Rename file src to target.
@@ -195,10 +219,13 @@ class LEVELDB_EXPORT Env {
   // added to the same Env may run concurrently in different threads.
   // I.e., the caller may not assume that background work items are
   // serialized.
+  //* Schedule 将某个函数调度到后台线程中执行
+  //* 后台线程长期存在, 并不会随着函数的执行完毕而销毁
   virtual void Schedule(void (*function)(void* arg), void* arg) = 0;
 
   // Start a new thread, invoking "function(arg)" within the new thread.
   // When "function(arg)" returns, the thread will be destroyed.
+  //* 开启一个新的线程, 并且在新的线程中执行指定的函数操作
   virtual void StartThread(void (*function)(void* arg), void* arg) = 0;
 
   // *path is set to a temporary directory that can be used for testing. It may
@@ -236,6 +263,7 @@ class LEVELDB_EXPORT SequentialFile {
   // If an error was encountered, returns a non-OK status.
   //
   // REQUIRES: External synchronization
+  //* <_________________>
   virtual Status Read(size_t n, Slice* result, char* scratch) = 0;
 
   // Skip "n" bytes from the file. This is guaranteed to be no
@@ -245,6 +273,8 @@ class LEVELDB_EXPORT SequentialFile {
   // file, and Skip will return OK.
   //
   // REQUIRES: External synchronization
+  //* 参数 n 制定了从文件当前位置需要忽略的字节数
+  //* 如果从当前位置到文件末尾的字节数不足 n 个字节
   virtual Status Skip(uint64_t n) = 0;
 };
 

@@ -133,6 +133,11 @@ class Limiter {
 //
 // Instances of this class are thread-friendly but not thread-safe, as required
 // by the SequentialFile API.
+
+// 1. 在文件中使用 read() 实现了顺序读访问
+// 2. 这个类是实例是线程友好的, 但不是线程安全的, 
+//
+//
 class PosixSequentialFile final : public SequentialFile {
  public:
   PosixSequentialFile(std::string filename, int fd)

@@ -38,7 +38,7 @@ class Writer {
 
  private:
   Status EmitPhysicalRecord(RecordType type, const char* ptr, size_t length);
-
+  //* 写入文件的抽象
   WritableFile* dest_;
   int block_offset_;  // Current offset in block
 

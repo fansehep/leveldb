@@ -51,6 +51,7 @@ char* EncodeVarint64(char* dst, uint64_t value);
 // Lower-level versions of Put... that write directly into a character buffer
 // REQUIRES: dst has enough space for the value being written
 
+// uint32_t 保存在buf中, uint32_t -> char[4]
 inline void EncodeFixed32(char* dst, uint32_t value) {
   uint8_t* const buffer = reinterpret_cast<uint8_t*>(dst);
 
@@ -61,6 +62,7 @@ inline void EncodeFixed32(char* dst, uint32_t value) {
   buffer[3] = static_cast<uint8_t>(value >> 24);
 }
 
+// uint64_t 保存在buf中, uint64_t -> char[8]
 inline void EncodeFixed64(char* dst, uint64_t value) {
   uint8_t* const buffer = reinterpret_cast<uint8_t*>(dst);
 
@@ -82,12 +84,15 @@ inline uint32_t DecodeFixed32(const char* ptr) {
   const uint8_t* const buffer = reinterpret_cast<const uint8_t*>(ptr);
 
   // Recent clang and gcc optimize this to a single mov / ldr instruction.
+  // 依次解析char[4] 中的数据, 并且互相相 |, 这里的操作其实就是在 +,
+  // 因为每个 buf[i] 实际上保存的只有uint32_t | | | | |, 每个字节的数据
   return (static_cast<uint32_t>(buffer[0])) |
          (static_cast<uint32_t>(buffer[1]) << 8) |
          (static_cast<uint32_t>(buffer[2]) << 16) |
          (static_cast<uint32_t>(buffer[3]) << 24);
 }
 
+// 同上
 inline uint64_t DecodeFixed64(const char* ptr) {
   const uint8_t* const buffer = reinterpret_cast<const uint8_t*>(ptr);
 
@@ -105,10 +110,18 @@ inline uint64_t DecodeFixed64(const char* ptr) {
 // Internal routine for use by fallback path of GetVarint32Ptr
 const char* GetVarint32PtrFallback(const char* p, const char* limit,
                                    uint32_t* value);
+
+//
 inline const char* GetVarint32Ptr(const char* p, const char* limit,
                                   uint32_t* value) {
   if (p < limit) {
+    // char buf[4] = 00000000 00000000 00000000 00000000
+    //               |       |        |        |        |
+    // 依次取出每个buf[i] 中的值
     uint32_t result = *(reinterpret_cast<const uint8_t*>(p));
+    // result & 128(1 << 7), 在判断第一个字节是否为 0
+    // 在上面的EncodeVarInt32中, 使用每个字节的第一位来判断后续是否还有数字
+    // 如果第一位 == 0, 则表示解码成功, 直接返回即可
     if ((result & 128) == 0) {
       *value = result;
       return p + 1;

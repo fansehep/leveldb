@@ -76,15 +76,24 @@ class LEVELDB_EXPORT Status {
   std::string ToString() const;
 
  private:
+
   enum Code {
+    //* 操作正常
     kOk = 0,
+    //* 没有找到相关操作项
     kNotFound = 1,
+    //* 数据异常崩溃
     kCorruption = 2,
+    //* 不支持
     kNotSupported = 3,
+    //* 非法参数
     kInvalidArgument = 4,
+    //* IO 操作错误
     kIOError = 5
   };
 
+  //* 当操作成功之后, state_ = nullptr => OK
+  //* 否则, state[4] 之后就携带着错误码信息
   Code code() const {
     return (state_ == nullptr) ? kOk : static_cast<Code>(state_[4]);
   }
@@ -97,6 +106,7 @@ class LEVELDB_EXPORT Status {
   //    state_[0..3] == length of message
   //    state_[4]    == code
   //    state_[5..]  == message
+  // 报错错误码
   const char* state_;
 };
 

@@ -40,6 +40,30 @@ namespace {
 
 // An entry is a variable length heap-allocated structure.  Entries
 // are kept in a circular doubly linked list ordered by access time.
+
+//
+// LRU高速缓存的实现
+//
+// 缓存条目有一个 "in_cache "布尔值，表示缓存中是否有一个
+// 该条目上的引用。 在条目没有被传递给 "删除器
+// "的情况下，这个布尔值成为假值的唯一方法是通过Erase()函数。 条目被传递给它的
+// "删除者 "的唯一方法是通过Erase()，通过Insert()，当
+// 插入一个有重复键的元素，或者在销毁缓存的时候。
+//
+// 缓存保留了两个链接的缓存项目的列表。 缓存中的所有项目
+// 缓存中的所有项目都在一个列表或另一个列表中，而不会同时出现。
+// 客户端仍然引用的项目 但从缓存中删除的项目都不在列表中。 这些列表是
+// - 使用中的：包含当前被客户引用的项目，不按特定顺序排列。
+// 顺序。 (这个列表是用来进行不变性检查的。 如果我们
+// 取消检查，本来在这个列表中的元素可能会被
+// 变成不相干的单子列表）。
+// - LRU: 包含当前没有被客户端引用的项目，按照LRU的顺序。
+// 元素通过Ref()和Unref()方法在这些列表之间移动。
+// 当它们检测到缓存中的一个元素获得或失去其唯一的
+// 外部引用。
+
+// 一个条目是一个长度可变的堆分配的结构。 条目
+// 被保存在一个循环的双链表中，按访问时间排序。
 struct LRUHandle {
   void* value;
   void (*deleter)(const Slice&, void* value);
@@ -67,6 +91,7 @@ struct LRUHandle {
 // table implementations in some of the compiler/runtime combinations
 // we have tested.  E.g., readrandom speeds up by ~5% over the g++
 // 4.4.3's builtin hashtable.
+
 class HandleTable {
  public:
   HandleTable() : length_(0), elems_(0), list_(nullptr) { Resize(); }

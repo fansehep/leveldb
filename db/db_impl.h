@@ -26,6 +26,7 @@ class Version;
 class VersionEdit;
 class VersionSet;
 
+//* 针对与 DB /include/leveldb/db.h 的具体实现
 class DBImpl : public DB {
  public:
   DBImpl(const Options& options, const std::string& dbname);
@@ -43,7 +44,18 @@ class DBImpl : public DB {
   Status Get(const ReadOptions& options, const Slice& key,
              std::string* value) override;
   Iterator* NewIterator(const ReadOptions&) override;
+
+  /*
+   * leveldb::ReadOptons options;
+   * options.snapshot = db->GetSnapshot();
+   * leveldb::Iterator* iter = db->NewIterator(options);
+   ? delete iter;
+   * db->ReleaseSnapshot(options.snapshot);
+   */
+  //* 获取当前的快照
   const Snapshot* GetSnapshot() override;
+
+  //* 释放快照
   void ReleaseSnapshot(const Snapshot* snapshot) override;
   bool GetProperty(const Slice& property, std::string* value) override;
   void GetApproximateSizes(const Range* range, int n, uint64_t* sizes) override;
@@ -123,6 +135,7 @@ class DBImpl : public DB {
   // Errors are recorded in bg_error_.
   void CompactMemTable() EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
+  //* 从 Log文件中恢复 memtable
   Status RecoverLogFile(uint64_t log_number, bool last_log, bool* save_manifest,
                         VersionEdit* edit, SequenceNumber* max_sequence)
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);

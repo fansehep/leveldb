@@ -26,9 +26,11 @@ class SnapshotImpl : public Snapshot {
 
   // SnapshotImpl is kept in a doubly-linked circular list. The SnapshotList
   // implementation operates on the next/previous fields directly.
+  // SnapshotImpl被保存在一个双链接的循环列表中。SnapshotList
+  // 的实现直接对下一个/上一个字段进行操作。
   SnapshotImpl* prev_;
   SnapshotImpl* next_;
-
+  //* 快照的序列号
   const SequenceNumber sequence_number_;
 
 #if !defined(NDEBUG)

@@ -164,6 +164,7 @@ class Block::Iter : public Iterator {
   void Seek(const Slice& target) override {
     // Binary search in restart array to find the last restart point
     // with a key < target
+    //* num_restarts_ 为重启点个数
     uint32_t left = 0;
     uint32_t right = num_restarts_ - 1;
     int current_key_compare = 0;
@@ -185,17 +186,26 @@ class Block::Iter : public Iterator {
     }
 
     while (left < right) {
+      //*
       uint32_t mid = (left + right + 1) / 2;
+      //* GetRestartPoint: 查找到 mid 这个重启点的值
       uint32_t region_offset = GetRestartPoint(mid);
       uint32_t shared, non_shared, value_length;
+      //* data_ : 块的内容, region_offset : 重启点在块中的偏移量
+      //* 重启点数据中读取第一组 key - value 对, shared 表示 key 共享部分长度(前缀相同的部分)
+      //* 共享部分长度, value_length: 值的长度, 返回值: key_ptr 指向了 key 的非共享部分.
       const char* key_ptr =
           DecodeEntry(data_ + region_offset, data_ + restarts_, &shared,
                       &non_shared, &value_length);
+      //* 重启点开始位置的 key 共享部分长度 = 0, shared = 0.
       if (key_ptr == nullptr || (shared != 0)) {
         CorruptionError();
         return;
       }
+      //* mid_key : mid 重启点指向 key-value 的第一个key,
+      //* shared :  
       Slice mid_key(key_ptr, non_shared);
+      //* 如果 key < 查找值(target), 则将 left 置为 mid
       if (Compare(mid_key, target) < 0) {
         // Key at "mid" is smaller than "target".  Therefore all
         // blocks before "mid" are uninteresting.
@@ -203,6 +213,7 @@ class Block::Iter : public Iterator {
       } else {
         // Key at "mid" is >= "target".  Therefore all blocks at or
         // after "mid" are uninteresting.
+        //* 如果 key > target, 则将 right = mid - 1.
         right = mid - 1;
       }
     }
@@ -216,6 +227,9 @@ class Block::Iter : public Iterator {
       SeekToRestartPoint(left);
     }
     // Linear search (within restart block) for first key >= target
+    //* 在块中线性查找, ParseNextKey 会依次遍历每一个 key/value,
+    //* 然后将 key 和 目标键 target 比较.
+    //* 直到找到 >= target 的第一个 key.
     while (true) {
       if (!ParseNextKey()) {
         return;

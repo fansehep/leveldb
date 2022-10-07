@@ -53,6 +53,10 @@ class MemTable {
   // Add an entry into memtable that maps key to value at the
   // specified sequence number and with the specified type.
   // Typically value will be empty if type==kTypeDeletion.
+  //
+  //* 在memtable中添加一个条目，在指定的序列号和指定的类型下将键映射到值。
+  //* 指定的序列号和指定的类型。
+  //* 如果类型==kTypeDeletion，典型的值将是空的。
   void Add(SequenceNumber seq, ValueType type, const Slice& key,
            const Slice& value);
 

@@ -43,10 +43,13 @@ const int kNumNonTableCacheFiles = 10;
 struct DBImpl::Writer {
   explicit Writer(port::Mutex* mu)
       : batch(nullptr), sync(false), done(false), cv(mu) {}
-
+  //* 1. 状态信息
   Status status;
+  //* 2. 需要批量写入的数据
   WriteBatch* batch;
+  //* 3. 是否需要 sync
   bool sync;
+  //* 4. 是否完成
   bool done;
   port::CondVar cv;
 };
@@ -419,6 +422,12 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
   // paranoid_checks==false so that corruptions cause entire commits
   // to be skipped instead of propagating bad information (like overly
   // large sequence numbers).
+  //*
+  //* 我们故意让log::Reader做检查和，即使
+  //* paranoid_checks==false，以便腐败导致整个提交被跳过。
+  //* 而不是传播坏信息（比如过大的序列号）。
+  //* 大的序列号）。
+
   log::Reader reader(file, &reporter, true /*checksum*/, 0 /*initial_offset*/);
   Log(options_.info_log, "Recovering log #%llu",
       (unsigned long long)log_number);
@@ -429,18 +438,21 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
   WriteBatch batch;
   int compactions = 0;
   MemTable* mem = nullptr;
+  //* 循环读取日志文件
   while (reader.ReadRecord(&record, &scratch) && status.ok()) {
     if (record.size() < 12) {
       reporter.Corruption(record.size(),
                           Status::Corruption("log record too small"));
       continue;
     }
+
     WriteBatchInternal::SetContents(&batch, record);
 
     if (mem == nullptr) {
       mem = new MemTable(internal_comparator_);
       mem->Ref();
     }
+    //* 将日志记录插入到 MemTable 中
     status = WriteBatchInternal::InsertInto(&batch, mem);
     MaybeIgnoreError(&status);
     if (!status.ok()) {
@@ -452,6 +464,9 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
       *max_sequence = last_seq;
     }
 
+    //* 如果 MemTable 大小超过阈值, 需要将其生成SSTable
+    //* 如果 MemTable 使用的内存容量超出配置的 write_buffer_size (default = 4MB)
+    //* 会将 MemTable 转换为一个SSTable 写入到磁盘中
     if (mem->ApproximateMemoryUsage() > options_.write_buffer_size) {
       compactions++;
       *save_manifest = true;
@@ -509,6 +524,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   FileMetaData meta;
   meta.number = versions_->NewFileNumber();
   pending_outputs_.insert(meta.number);
+  //* 生成一个 MemTable 迭代器, 实际调用的是底层SkipList 的迭代器
   Iterator* iter = mem->NewIterator();
   Log(options_.info_log, "Level-0 table #%llu: started",
       (unsigned long long)meta.number);
@@ -516,6 +532,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   Status s;
   {
     mutex_.Unlock();
+    //* 将 MemTable 迭代器作为参数传入, 调用BuildTable函数生成一个SSTable
     s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
     mutex_.Lock();
   }
@@ -1112,12 +1129,23 @@ int64_t DBImpl::TEST_MaxNextLevelOverlappingBytes() {
   return versions_->MaxNextLevelOverlappingBytes();
 }
 
+//*
+//* MemTable =>? ImmutableMemTable => SSTable
+//*                                   持久化的文件
+//* Ref() and Unref() 针对指针对象使用了引用计数的功能, 某个
+//* 对象在实例化之后, 调用 Ref() 则引用计数 + 1, 调用 Unref()
+//* 则引用计数 -1, 如果该对象引用计数为 0, 则说明了当前没有对象需要该对象
+//* 从而可以触发指针对象的删除与回收. like std::shared_ptr<>
 Status DBImpl::Get(const ReadOptions& options, const Slice& key,
                    std::string* value) {
   Status s;
   MutexLock l(&mutex_);
+  //* SequenceNumber is uint64_t.
+  //* 是一个 64 位的整数, 其中最高8位没有使用, 实际只使用56位, 最后一个字节
+  //* 用来存储该数据的值类型
   SequenceNumber snapshot;
   if (options.snapshot != nullptr) {
+    //* 获取Get操作所对应的 SequenceNumber
     snapshot =
         static_cast<const SnapshotImpl*>(options.snapshot)->sequence_number();
   } else {
@@ -1138,6 +1166,8 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   {
     mutex_.Unlock();
     // First look in the memtable, then in the immutable memtable (if any).
+    //? 先从 memtable 中寻找, 找不到再去 immutable memtable.
+    //? 
     LookupKey lkey(key, snapshot);
     if (mem->Get(lkey, value, &s)) {
       // Done
@@ -1180,6 +1210,7 @@ void DBImpl::RecordReadSample(Slice key) {
 
 const Snapshot* DBImpl::GetSnapshot() {
   MutexLock l(&mutex_);
+  //* 创建一个新的快照节点, 并且加入到 list<Snapshot> 后面
   return snapshots_.New(versions_->LastSequence());
 }
 
@@ -1197,6 +1228,7 @@ Status DBImpl::Delete(const WriteOptions& options, const Slice& key) {
   return DB::Delete(options, key);
 }
 
+//? sync or not sync? that's a question.
 Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
   Writer w(&mutex_);
   w.batch = updates;
@@ -1204,8 +1236,13 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
   w.done = false;
 
   MutexLock l(&mutex_);
+
+//* 1. writers std::deque<Writer*> writers_;
+//* 2. 为了线程安全, 每次只能执行一个writer
   writers_.push_back(&w);
   while (!w.done && &w != writers_.front()) {
+    //* 3. 阻塞等待前面的Writer执行完毕
+    //* 如果前面仍然还有其他的writer没有执行完毕, 仍然继续阻塞
     w.cv.Wait();
   }
   if (w.done) {
@@ -1213,10 +1250,12 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
   }
 
   // May temporarily unlock and wait.
+  //* 预先分配相应的内存空间
   Status status = MakeRoomForWrite(updates == nullptr);
   uint64_t last_sequence = versions_->LastSequence();
   Writer* last_writer = &w;
   if (status.ok() && updates != nullptr) {  // nullptr batch is for compactions
+    //* 合并写入操作
     WriteBatch* write_batch = BuildBatchGroup(&last_writer);
     WriteBatchInternal::SetSequence(write_batch, last_sequence + 1);
     last_sequence += WriteBatchInternal::Count(write_batch);
@@ -1225,10 +1264,18 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
     // during this phase since &w is currently responsible for logging
     // and protects against concurrent loggers and concurrent writes
     // into mem_.
+    // 添加到日志并应用到memtable。 我们可以在这个阶段释放锁
+    // 在这个阶段，因为&w目前负责记录
+    // 并防止并发的记录器和并发的写操作
+    // 进入mem_。
     {
       mutex_.Unlock();
+      //* 将更新记录到日志文件并且将日志文件刷新到磁盘
+      //* | SequenceNumber(8) | Count(4) | type(1) 0x0 delete / 0x1 key/value | key_len | key | value_len | value |
+      //* leveldb 每次写入时都需要预写日志
       status = log_->AddRecord(WriteBatchInternal::Contents(write_batch));
       bool sync_error = false;
+      //* 是否启用 sync, 强制刷盘
       if (status.ok() && options.sync) {
         status = logfile_->Sync();
         if (!status.ok()) {
@@ -1250,7 +1297,9 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
 
     versions_->SetLastSequence(last_sequence);
   }
-
+  //* 1.由于合并写入操作一次可能会处理多个 writers_ 队列中的
+  //* 元素, 因此此处将所有已经处理的元素状态进行变更,
+  //* 并且发送 signal 信号
   while (true) {
     Writer* ready = writers_.front();
     writers_.pop_front();
@@ -1264,6 +1313,7 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
 
   // Notify new head of write queue
   if (!writers_.empty()) {
+    //* 通知该函数最开始的阻塞
     writers_.front()->cv.Signal();
   }
 
@@ -1468,7 +1518,9 @@ void DBImpl::GetApproximateSizes(const Range* range, int n, uint64_t* sizes) {
 // can call if they wish
 Status DB::Put(const WriteOptions& opt, const Slice& key, const Slice& value) {
   WriteBatch batch;
+  //* 1. 将 key, value 数据写入批量操作缓存中
   batch.Put(key, value);
+  //* 2. 调用 Write 进行批量写入
   return Write(opt, &batch);
 }
 
@@ -1482,15 +1534,21 @@ DB::~DB() = default;
 
 Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   *dbptr = nullptr;
-
+  //* 1. 初始化一个DBImpl 的对象, options, dbname 作为相关参数.
   DBImpl* impl = new DBImpl(options, dbname);
   impl->mutex_.Lock();
   VersionEdit edit;
   // Recover handles create_if_missing, error_if_exists
+  // 恢复 create_if_missing, error_if_exists
   bool save_manifest = false;
+  //* 2. 尝试恢复以前存在的数据库文件数据
+  //*
   Status s = impl->Recover(&edit, &save_manifest);
+  //* 3. 进行 Recover 之后, 需要判断impl->mem_ 的制作是否为空
+  //*    如果 == nullptr =>
   if (s.ok() && impl->mem_ == nullptr) {
     // Create new log and a corresponding memtable.
+    //* 4. 建立一个新的
     uint64_t new_log_number = impl->versions_->NewFileNumber();
     WritableFile* lfile;
     s = options.env->NewWritableFile(LogFileName(dbname, new_log_number),
@@ -1504,13 +1562,20 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
       impl->mem_->Ref();
     }
   }
+  //* 5. 判断是否需要保存Manifest相关信息, 如果需要, 则保存相关信息
+  //*    如果不需要, 则跳到 S6.
   if (s.ok() && save_manifest) {
     edit.SetPrevLogNumber(0);  // No older logs needed after recovery.
     edit.SetLogNumber(impl->logfile_number_);
     s = impl->versions_->LogAndApply(&edit, &impl->mutex_);
-  }
+  }//* 生成新的版本
+
+  //*
+  //*
   if (s.ok()) {
+    //* 清理无用的文件
     impl->RemoveObsoleteFiles();
+    //* 尝试进行依次 Compaction 操作
     impl->MaybeScheduleCompaction();
   }
   impl->mutex_.Unlock();

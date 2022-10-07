@@ -24,6 +24,13 @@
 
 namespace leveldb {
 
+//* LEVELDB_EXPORT 是空的, 代表用户接口.
+/*
+ * leveldb 不直接操作std::string, 以操作Slice为主
+ * 看起来就像是c++17 的 std::string_view
+ *
+ *
+ */
 class LEVELDB_EXPORT Slice {
  public:
   // Create an empty slice.
@@ -65,6 +72,8 @@ class LEVELDB_EXPORT Slice {
   }
 
   // Drop the first "n" bytes from this slice.
+  //* 移除 Slice 前 n 个字节, 但不是真的移除
+  //* 只是简单的被动 data_ += n, size -= n;
   void remove_prefix(size_t n) {
     assert(n <= size());
     data_ += n;
@@ -81,6 +90,7 @@ class LEVELDB_EXPORT Slice {
   int compare(const Slice& b) const;
 
   // Return true iff "x" is a prefix of "*this"
+  //* 是否以 x 为前缀.
   bool starts_with(const Slice& x) const {
     return ((size_ >= x.size_) && (memcmp(data_, x.data_, x.size_) == 0));
   }

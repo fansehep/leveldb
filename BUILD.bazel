@@ -1,8 +1,8 @@
+package(default_visibility = ["//visibility:public"])
+
 config_setting(
-    name = "osx_x86_64",
-    constraint_values = [
-        "@bazel_tools//platforms:osx",
-        "@bazel_tools//platforms:x86_64",
-    ],
-    visibility = ["//visibility:public"],
+    name = "clang_compiler",
+    flag_values = {
+        "@bazel_tools//tools/cpp:compiler": "clang",
+    },
 )

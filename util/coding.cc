@@ -26,8 +26,10 @@ char* EncodeVarint32(char* dst, uint32_t v) {
   static const int B = 128;
   // 进行编码, 如果 value < 128
   // 就只保存最后一个字节的值
+
   if (v < (1 << 7)) {
     *(ptr++) = v;
+
   } else if (v < (1 << 14)) {
     // v | B,
     // 例如: value(二进制表示) =  00000000 00000000 00000000 00000000
@@ -80,7 +82,9 @@ void PutVarint64(std::string* dst, uint64_t v) {
 }
 
 void PutLengthPrefixedSlice(std::string* dst, const Slice& value) {
+  //* 对于单个 string 来说, 应该先 push 进去 string.size()
   PutVarint32(dst, value.size());
+  //* 最后再 push 进去 value.size();
   dst->append(value.data(), value.size());
 }
 

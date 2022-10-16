@@ -22,6 +22,12 @@ class VersionEdit;
 // *meta will be filled with metadata about the generated table.
 // If no data is present in *iter, meta->file_size will be set to
 // zero, and no Table file will be produced.
+//*
+// 从*iter的内容中建立一个Table文件。 生成的文件
+// 将根据meta->number来命名。 一旦成功，*meta的其余部分将被填入关于生成的表的元数据。
+// *meta将被填入关于生成的表的元数据。
+// 如果*iter中没有数据，meta->file_size将被设置为 
+// 零，并且不会产生表文件。
 Status BuildTable(const std::string& dbname, Env* env, const Options& options,
                   TableCache* table_cache, Iterator* iter, FileMetaData* meta);
 

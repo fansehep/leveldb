@@ -40,7 +40,7 @@ namespace {
 
 // An entry is a variable length heap-allocated structure.  Entries
 // are kept in a circular doubly linked list ordered by access time.
-
+//
 //
 // LRU高速缓存的实现
 //
@@ -64,22 +64,37 @@ namespace {
 
 // 一个条目是一个长度可变的堆分配的结构。 条目
 // 被保存在一个循环的双链表中，按访问时间排序。
+//
 struct LRUHandle {
+  //
   void* value;
+  //
   void (*deleter)(const Slice&, void* value);
+  //
   LRUHandle* next_hash;
+  //
   LRUHandle* next;
+  //
   LRUHandle* prev;
+  //
   size_t charge;  // TODO(opt): Only allow uint32_t?
+  //
   size_t key_length;
+  //
   bool in_cache;     // Whether entry is in the cache.
+  // 条目是否在缓存中。
   uint32_t refs;     // References, including cache reference, if present.
+  // 引用，包括缓存引用，如果存在的话。
   uint32_t hash;     // Hash of key(); used for fast sharding and comparisons
+  // key()的哈希值；用于快速分片和比较
   char key_data[1];  // Beginning of key
 
   Slice key() const {
     // next is only equal to this if the LRU handle is the list head of an
     // empty list. List heads never have meaningful keys.
+    //
+    // 如果LRU句柄是一个空列表的头部，那么Next就等于这个。
+    // 空列表。列表头永远不会有有意义的键。
     assert(next != this);
 
     return Slice(key_data, key_length);
@@ -91,6 +106,12 @@ struct LRUHandle {
 // table implementations in some of the compiler/runtime combinations
 // we have tested.  E.g., readrandom speeds up by ~5% over the g++
 // 4.4.3's builtin hashtable.
+
+// 我们提供了我们自己的简单哈希表，因为它消除了一大批
+// 我们提供了自己的简单哈希表，因为它消除了一大堆移植方面的麻烦，而且比某些编译器/运行时组合中的内置哈希表更快。
+// 表的速度，而且比一些编译器/运行时组合中的内置哈希表实现要快。
+// 我们已经测试过了。 例如，readrandom比g++的速度快了~5%。
+// 4.4.3的内置哈希表。
 
 class HandleTable {
  public:
@@ -106,14 +127,18 @@ class HandleTable {
     LRUHandle* old = *ptr;
     h->next_hash = (old == nullptr ? nullptr : old->next_hash);
     *ptr = h;
+
     if (old == nullptr) {
       ++elems_;
       if (elems_ > length_) {
         // Since each cache entry is fairly large, we aim for a small
         // average linked list length (<= 1).
+        // 由于每个缓存条目都相当大，所以我们的目标是小的
+        // 平均链接列表长度（<=1）。
         Resize();
       }
     }
+
     return old;
   }
 
@@ -137,11 +162,19 @@ class HandleTable {
   // Return a pointer to slot that points to a cache entry that
   // matches key/hash.  If there is no such cache entry, return a
   // pointer to the trailing slot in the corresponding linked list.
+  //
+  // 返回一个指向槽的指针，该槽指向一个缓存条目，该条目
+  // 匹配key/hash。 如果没有这样的缓存条目，则返回一个
+  // 指向相应的链表中的尾部槽的指针。
+
   LRUHandle** FindPointer(const Slice& key, uint32_t hash) {
+
     LRUHandle** ptr = &list_[hash & (length_ - 1)];
+
     while (*ptr != nullptr && ((*ptr)->hash != hash || key != (*ptr)->key())) {
       ptr = &(*ptr)->next_hash;
     }
+
     return ptr;
   }
 
@@ -170,6 +203,7 @@ class HandleTable {
     list_ = new_list;
     length_ = new_length;
   }
+
 };
 
 // A single shard of sharded cache.
@@ -189,12 +223,14 @@ class LRUCache {
   void Release(Cache::Handle* handle);
   void Erase(const Slice& key, uint32_t hash);
   void Prune();
+
   size_t TotalCharge() const {
     MutexLock l(&mutex_);
     return usage_;
   }
 
  private:
+
   void LRU_Remove(LRUHandle* e);
   void LRU_Append(LRUHandle* list, LRUHandle* e);
   void Ref(LRUHandle* e);

@@ -77,16 +77,23 @@ std::string OldInfoLogFileName(const std::string& dbname) {
 //    dbname/[0-9]+.(log|sst|ldb)
 bool ParseFileName(const std::string& filename, uint64_t* number,
                    FileType* type) {
+
   Slice rest(filename);
+
   if (rest == "CURRENT") {
     *number = 0;
+    //* 正在写入的文件???
     *type = kCurrentFile;
+
   } else if (rest == "LOCK") {
     *number = 0;
+    //*
     *type = kDBLockFile;
+
   } else if (rest == "LOG" || rest == "LOG.old") {
     *number = 0;
     *type = kInfoLogFile;
+
   } else if (rest.starts_with("MANIFEST-")) {
     rest.remove_prefix(strlen("MANIFEST-"));
     uint64_t num;
@@ -98,6 +105,7 @@ bool ParseFileName(const std::string& filename, uint64_t* number,
     }
     *type = kDescriptorFile;
     *number = num;
+
   } else {
     // Avoid strtoull() to keep filename format independent of the
     // current locale

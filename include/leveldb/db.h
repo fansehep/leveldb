@@ -114,6 +114,15 @@ class LEVELDB_EXPORT DB {
   // a status for which Status::IsNotFound() returns true.
   //
   // May return some other Status on an error.
+  //
+  // 如果数据库中包含一个 "key "的条目，则在*value中存储相应的值并返回OK。
+  // 相应的值在*value中并返回OK。
+  //
+  // 如果没有 "key "的条目，则保持*value不变并返回
+  // 一个Status::IsNotFound()返回true的状态。
+  //
+  // 可以在出错时返回其他状态。
+  //
   virtual Status Get(const ReadOptions& options, const Slice& key,
                      std::string* value) = 0;
 
@@ -142,10 +151,18 @@ class LEVELDB_EXPORT DB {
   // this handle will all observe a stable snapshot of the current DB
   // state.  The caller must call ReleaseSnapshot(result) when the
   // snapshot is no longer needed.
+  //
+  // 返回一个当前DB状态的句柄。 用这个句柄创建的迭代器
+  // 创建的迭代器都将观察到当前数据库的稳定快照。
+  // 状态。 当不再需要快照时，调用者必须调用 ReleaseSnapshot(result)。
+  // 不再需要快照时，调用者必须调用ReleaseSnapshot(result)。
   virtual const Snapshot* GetSnapshot() = 0;
 
   // Release a previously acquired snapshot.  The caller must not
   // use "snapshot" after this call.
+  //
+  // 释放一个先前获得的快照。 调用者不得
+  // 在此调用之后使用 "snapshot"。
   virtual void ReleaseSnapshot(const Snapshot* snapshot) = 0;
 
   // DB implementations can export properties about their state
@@ -164,6 +181,24 @@ class LEVELDB_EXPORT DB {
   //     of the sstables that make up the db contents.
   //  "leveldb.approximate-memory-usage" - returns the approximate number of
   //     bytes of memory in use by the DB.
+  //
+  // DB的实现可以通过这个方法输出关于其状态的属性。
+  // 通过这个方法。 如果 "property "是一个有效的属性，被这个DB实现所理解
+  // DB实现，则用其当前值填充 "*value "并返回
+  // true。 否则返回false。
+  //
+  //
+  // 有效的属性名称包括。
+  //
+  // "leveldb.num-files-at-level<N>" - 返回<N>级的文件数。
+  // 其中<N>是一个ASCII表示的级别号（例如 "0"）。
+  // "leveldb.stats" - 返回一个多行字符串，描述了关于数据库内部操作的统计数据
+  // 关于数据库的内部操作。
+  // "leveldb.sstables" - 返回一个多行字符串，描述所有的
+  // 组成数据库内容的所有sstables。
+  // "leveldb.approximate-memory-usage" - 返回数据库使用的内存的大约数量。
+  // DB所使用的内存的大约数量。
+  //
   virtual bool GetProperty(const Slice& property, std::string* value) = 0;
 
   // For each i in [0,n-1], store in "sizes[i]", the approximate
@@ -174,6 +209,15 @@ class LEVELDB_EXPORT DB {
   // sizes will be one-tenth the size of the corresponding user data size.
   //
   // The results may not include the sizes of recently written data.
+  //
+  // 对于[0,n-1]中的每一个i，在 "size[i]"中存储"[range[i].start . range[i].limit]"中的键所使用的大约
+  // "[range[i].start ... range[i].limit) "中的键所使用的文件系统空间。
+  //
+  // 注意，返回的大小是衡量文件系统空间使用情况的，所以
+  // 如果用户数据压缩了10倍，那么返回的
+  // 的大小将是相应用户数据大小的十分之一。
+  //
+  // 结果可能不包括最近写入的数据的大小。
   virtual void GetApproximateSizes(const Range* range, int n,
                                    uint64_t* sizes) = 0;
 
@@ -187,6 +231,17 @@ class LEVELDB_EXPORT DB {
   // end==nullptr is treated as a key after all keys in the database.
   // Therefore the following call will compact the entire database:
   //    db->CompactRange(nullptr, nullptr);
+  //
+  // 压缩键值范围[*begin,*end]的基础存储。
+  // 特别是，删除和覆盖的版本被丢弃了。
+  // 并且数据被重新排列，以减少访问数据所需的操作成本。
+  // 访问数据所需的操作成本。 这个操作通常只应该
+  // 由了解底层实现的用户来调用。
+  //
+  // begin==nullptr被视为数据库中所有键之前的一个键。
+  // end==nullptr被视为数据库中所有键之后的一个键。
+  // 因此下面的调用将压缩整个数据库。
+  // db->CompactRange(nullptr, nullptr)。
   virtual void CompactRange(const Slice* begin, const Slice* end) = 0;
 };
 
@@ -195,6 +250,12 @@ class LEVELDB_EXPORT DB {
 //
 // Note: For backwards compatibility, if DestroyDB is unable to list the
 // database files, Status::OK() will still be returned masking this failure.
+//
+// 销毁指定数据库的内容。
+// 使用这个方法要非常小心。
+//
+// 注意: 为了向后兼容，如果DestroyDB无法列出
+// 数据库文件，Status::OK()仍将被返回，以掩盖这一失败。
 LEVELDB_EXPORT Status DestroyDB(const std::string& name,
                                 const Options& options);
 
@@ -202,6 +263,11 @@ LEVELDB_EXPORT Status DestroyDB(const std::string& name,
 // resurrect as much of the contents of the database as possible.
 // Some data may be lost, so be careful when calling this function
 // on a database that contains important information.
+//
+// 如果一个数据库不能被打开，你可以尝试调用这个方法来
+// 尽可能多地复活数据库的内容。
+// 有些数据可能会丢失，所以在调用这个函数时要小心。
+// 时要小心，因为它包含了重要的信息。
 LEVELDB_EXPORT Status RepairDB(const std::string& dbname,
                                const Options& options);
 

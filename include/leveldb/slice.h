@@ -31,6 +31,7 @@ namespace leveldb {
  *
  *
  */
+
 class LEVELDB_EXPORT Slice {
  public:
   // Create an empty slice.

@@ -12,12 +12,19 @@ namespace leveldb {
 // Tag numbers for serialized VersionEdit.  These numbers are written to
 // disk and should not be changed.
 enum Tag {
+  // 比较器
   kComparator = 1,
+  // 日志文件序列号
   kLogNumber = 2,
+  // 下一个文件序列号
   kNextFileNumber = 3,
+  // 下一个写入序列号
   kLastSequence = 4,
+  // CompactPointer 类型
   kCompactPointer = 5,
+  // 删除的文件
   kDeletedFile = 6,
+  // 增加的文件
   kNewFile = 7,
   // 8 was used for large value refs
   kPrevLogNumber = 9
@@ -40,6 +47,9 @@ void VersionEdit::Clear() {
 }
 
 void VersionEdit::EncodeTo(std::string* dst) const {
+  // 如果设置了 comparactor_ 变量, 则先将 kComparactor Tag 编码
+  // 然后将比较器名称编码追加到 dst 字符串中.
+  //
   if (has_comparator_) {
     PutVarint32(dst, kComparator);
     PutLengthPrefixedSlice(dst, comparator_);

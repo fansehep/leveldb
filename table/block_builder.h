@@ -22,6 +22,7 @@ class BlockBuilder {
   BlockBuilder& operator=(const BlockBuilder&) = delete;
 
   // Reset the contents as if the BlockBuilder was just constructed.
+  //* 重置内容，就像刚刚构建的BlockBuilder一样。
   void Reset();
 
   // REQUIRES: Finish() has not been called since the last call to Reset().

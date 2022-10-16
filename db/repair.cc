@@ -200,6 +200,9 @@ class Repairer {
 
     // Do not record a version edit for this conversion to a Table
     // since ExtractMetaData() will also generate edits.
+    //*
+    //* 不要记录这次转换到表的版本编辑。
+    //* 因为ExtractMetaData()也会产生编辑。
     FileMetaData meta;
     meta.number = next_file_number_++;
     Iterator* iter = mem->NewIterator();
@@ -227,6 +230,9 @@ class Repairer {
   Iterator* NewTableIterator(const FileMetaData& meta) {
     // Same as compaction iterators: if paranoid_checks are on, turn
     // on checksum verification.
+    //
+    //* 与压实迭代器相同：如果panoid_checks开启，则开启校验。
+    //* 开启校验和验证。
     ReadOptions r;
     r.verify_checksums = options_.paranoid_checks;
     return table_cache_->NewIterator(r, meta.number, meta.file_size);

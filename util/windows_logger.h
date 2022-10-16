@@ -33,16 +33,21 @@ class WindowsLogger final : public Logger {
     ::GetLocalTime(&now_components);
 
     // Record the thread ID.
+    // 记录线程的ID。
     constexpr const int kMaxThreadIdSize = 32;
     std::ostringstream thread_stream;
     thread_stream << std::this_thread::get_id();
     std::string thread_id = thread_stream.str();
+
     if (thread_id.size() > kMaxThreadIdSize) {
       thread_id.resize(kMaxThreadIdSize);
     }
 
     // We first attempt to print into a stack-allocated buffer. If this attempt
     // fails, we make a second attempt with a dynamically allocated buffer.
+    //
+    // 我们首先尝试打印到一个堆栈分配的缓冲区。如果这个尝试
+    // 失败，我们就用一个动态分配的缓冲区进行第二次尝试。
     constexpr const int kStackBufferSize = 512;
     char stack_buffer[kStackBufferSize];
     static_assert(sizeof(stack_buffer) == static_cast<size_t>(kStackBufferSize),
@@ -50,6 +55,7 @@ class WindowsLogger final : public Logger {
 
     int dynamic_buffer_size = 0;  // Computed in the first iteration.
     for (int iteration = 0; iteration < 2; ++iteration) {
+
       const int buffer_size =
           (iteration == 0) ? kStackBufferSize : dynamic_buffer_size;
       char* const buffer =

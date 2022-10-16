@@ -47,7 +47,7 @@ class SkipList {
   // must remain allocated for the lifetime of the skiplist object.
   //*
   // 创建一个新的SkipList对象，它将使用 "cmp "来比较键值。
-  // 并将使用 "*arena "来分配内存。 在竞技场中分配的对象
+  // 并将使用 "*arena "来分配内存。 在内存池中分配的对象
   // 必须在skiplist对象的生命周期内保持分配。
   explicit SkipList(Comparator cmp, Arena* arena);
 

@@ -47,12 +47,15 @@ int g_open_read_only_file_limit = -1;
 constexpr const int kDefaultMmapLimit = (sizeof(void*) >= 8) ? 1000 : 0;
 
 // Can be set using EnvPosixTestHelper::SetReadOnlyMMapLimit().
+// 可以用EnvPosixTestHelper::SetReadOnlyMMapLimit()来设置。
 int g_mmap_limit = kDefaultMmapLimit;
 
 // Common flags defined for all posix open operations
 #if defined(HAVE_O_CLOEXEC)
 constexpr const int kOpenBaseFlags = O_CLOEXEC;
 #else
+//
+// 为所有posix打开操作定义的通用标志
 constexpr const int kOpenBaseFlags = 0;
 #endif  // defined(HAVE_O_CLOEXEC)
 
@@ -70,6 +73,12 @@ Status PosixError(const std::string& context, int error_number) {
 // Currently used to limit read-only file descriptors and mmap file usage
 // so that we do not run out of file descriptors or virtual memory, or run into
 // kernel performance problems for very large databases.
+//
+// 用于限制资源使用以避免耗尽的辅助类。
+// 目前用于限制只读文件描述符和mmap文件的使用。
+// 这样我们就不会出现文件描述符或虚拟内存耗尽的情况，
+// 也不会在大型数据库中遇到对于非常大的数据库内核性能问题。
+
 class Limiter {
  public:
   // Limit maximum number of resources to |max_acquires|.
@@ -178,19 +187,31 @@ class PosixSequentialFile final : public SequentialFile {
 // Instances of this class are thread-safe, as required by the RandomAccessFile
 // API. Instances are immutable and Read() only calls thread-safe library
 // functions.
+//
+// 使用pread()在文件中实现随机读取访问。
+//
+// 按照RandomAccessFile的要求，这个类的实例是线程安全的。
+// API的要求。实例是不可变的，Read()只调用线程安全的库
+// 的函数。
+
 class PosixRandomAccessFile final : public RandomAccessFile {
  public:
   // The new instance takes ownership of |fd|. |fd_limiter| must outlive this
   // instance, and will be used to determine if .
+  // 新的实例取得了|fd|的所有权。|fd_limiter|必须超过这个
+  // 实例，并将用于决定是否。
+
   PosixRandomAccessFile(std::string filename, int fd, Limiter* fd_limiter)
       : has_permanent_fd_(fd_limiter->Acquire()),
         fd_(has_permanent_fd_ ? fd : -1),
         fd_limiter_(fd_limiter),
         filename_(std::move(filename)) {
+
     if (!has_permanent_fd_) {
       assert(fd_ == -1);
       ::close(fd);  // The file will be opened on every read.
     }
+
   }
 
   ~PosixRandomAccessFile() override {
@@ -240,8 +261,15 @@ class PosixRandomAccessFile final : public RandomAccessFile {
 // Instances of this class are thread-safe, as required by the RandomAccessFile
 // API. Instances are immutable and Read() only calls thread-safe library
 // functions.
+//
+// 使用mmap()在文件中实现了随机读取访问。
+//
+// 按照RandomAccessFile的要求，这个类的实例是线程安全的。
+// API的要求。实例是不可变的，Read()只调用线程安全的库
+// 的函数。
 class PosixMmapReadableFile final : public RandomAccessFile {
  public:
+  //
   // mmap_base[0, length-1] points to the memory-mapped contents of the file. It
   // must be the result of a successful call to mmap(). This instances takes
   // over the ownership of the region.
@@ -249,6 +277,15 @@ class PosixMmapReadableFile final : public RandomAccessFile {
   // |mmap_limiter| must outlive this instance. The caller must have already
   // acquired the right to use one mmap region, which will be released when this
   // instance is destroyed.
+  //
+  // mmap_base[0, length-1] 指向文件的内存映射内容。它
+  // 必须是成功调用mmap()的结果。这个实例接管了
+  // 掌管该区域的所有权。
+  //
+  // |mmap_limiter|必须超过这个实例的寿命。调用者必须已经
+  // 获得了一个mmap区域的使用权，这个区域将在本实例销毁时被释放。
+  // 销毁时释放。
+  //
   PosixMmapReadableFile(std::string filename, char* mmap_base, size_t length,
                         Limiter* mmap_limiter)
       : mmap_base_(mmap_base),
@@ -473,9 +510,15 @@ int LockOrUnlock(int fd, bool lock) {
   errno = 0;
   struct ::flock file_lock_info;
   std::memset(&file_lock_info, 0, sizeof(file_lock_info));
+  //* F_WRLCK, 写锁
+  //* F_UNLCK, 不上锁 / 解锁
   file_lock_info.l_type = (lock ? F_WRLCK : F_UNLCK);
+  //* 跳转到哪里
+  //* SEEK_SET 调转到指定位置
   file_lock_info.l_whence = SEEK_SET;
+  //* 起始位置
   file_lock_info.l_start = 0;
+  //* 偏移量
   file_lock_info.l_len = 0;  // Lock/unlock entire file.
   return ::fcntl(fd, F_SETLK, &file_lock_info);
 }
@@ -501,6 +544,16 @@ class PosixFileLock : public FileLock {
 // same process.
 //
 // Instances are thread-safe because all member data is guarded by a mutex.
+
+/*
+ * 个人感觉一个好的实现方式是,
+ * std::unordered_map<std::string, bool>
+ * or std::map<std::string, bool>
+ * 频繁删除元素是不好的, 但文件被锁住, = true 即可.
+ * 但这样的话, 我们需要考虑内存的问题
+ * 一个好的解决方法是: 当插入达到一定数量级时, 我们应该在当前线程做一次删除?
+ * 这种做法对性能的影响有待考证
+ */
 class PosixLockTable {
  public:
   bool Insert(const std::string& fname) LOCKS_EXCLUDED(mu_) {
@@ -574,7 +627,7 @@ class PosixEnv : public Env {
     }
     return status;
   }
-
+  //* 打开一个可以写入的文件
   Status NewWritableFile(const std::string& filename,
                          WritableFile** result) override {
     int fd = ::open(filename.c_str(),
@@ -665,12 +718,16 @@ class PosixEnv : public Env {
     if (fd < 0) {
       return PosixError(filename, errno);
     }
-
+    //* 文件锁, 本质上是一个 std::set<std::string>,
+    //* 当在集合的时候, 就认为对应的文件的锁被其他线程所持有
+    //* remove filename时候, 就是要unlock,
+    //*
+    //* 个人感觉可以优化一下, /util/env_posix.cc
     if (!locks_.Insert(filename)) {
       ::close(fd);
       return Status::IOError("lock " + filename, "already held by process");
     }
-
+    //*
     if (LockOrUnlock(fd, true) == -1) {
       int lock_errno = errno;
       ::close(fd);

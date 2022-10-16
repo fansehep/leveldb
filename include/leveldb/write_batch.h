@@ -28,10 +28,10 @@
 
 namespace leveldb {
 
-// 针对大量的操作, leveldb 不具有传统数据库的所具有的事务操作机制,
-// 然而它提供了一种批量操作的方法:
-// 1. 提供了一种原子性的批量操作方法
-// 2. 提高了整体的数据操作速度
+//* 针对大量的操作, leveldb 不具有传统数据库的所具有的事务操作机制,
+//* 然而它提供了一种批量操作的方法:
+//* 1. 提供了一种原子性的批量操作方法
+//* 2. 提高了整体的数据操作速度
 
 class Slice;
 
@@ -47,6 +47,7 @@ class LEVELDB_EXPORT WriteBatch {
   WriteBatch();
 
   // Intentionally copyable.
+  //* a simple way is public boost::uncoypable
   WriteBatch(const WriteBatch&) = default;
   WriteBatch& operator=(const WriteBatch&) = default;
 

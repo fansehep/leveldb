@@ -66,6 +66,7 @@ std::string Status::ToString() const {
         type = tmp;
         break;
     }
+    // "NotFound: "
     std::string result(type);
     uint32_t length;
     std::memcpy(&length, state_, sizeof(length));

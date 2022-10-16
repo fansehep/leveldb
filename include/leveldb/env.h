@@ -304,6 +304,15 @@ class LEVELDB_EXPORT RandomAccessFile {
 // A file abstraction for sequential writing.  The implementation
 // must provide buffering since callers may append small fragments
 // at a time to the file.
+//* 一个用于顺序写入的文件抽象。 该实现
+//* 必须提供缓冲，因为调用者可能会在文件中加入小的片段。
+//* 缓冲，因为调用者可能每次都会向文件中添加小的片段。
+//*
+//* 个人感觉很多跨平台的实现,
+//* 最近在看 brpc 的代码, 他们关于 windows 和 linux
+//* 的 IO 多路复用的实现是用 2 个不同的 xxxx.cpp 实现
+//* 应该是在 cmake 或者 bazel 编译的时候, 选择不同的 .cpp
+//* 即可.
 class LEVELDB_EXPORT WritableFile {
  public:
   WritableFile() = default;

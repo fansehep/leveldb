@@ -36,6 +36,10 @@ int MemTable::KeyComparator::operator()(const char* aptr,
 // Encode a suitable internal key target for "target" and return it.
 // Uses *scratch as scratch space, and the returned pointer will point
 // into this scratch space.
+//
+//* 为 "target "编码一个合适的内部键目标，并返回它。
+//* 使用*scratch作为划痕空间，返回的指针将指向
+//* 到这个划痕空间。
 static const char* EncodeKey(std::string* scratch, const Slice& target) {
   scratch->clear();
   PutVarint32(scratch, target.size());
@@ -55,10 +59,15 @@ class MemTableIterator : public Iterator {
   bool Valid() const override { return iter_.Valid(); }
   void Seek(const Slice& k) override { iter_.Seek(EncodeKey(&tmp_, k)); }
   void SeekToFirst() override { iter_.SeekToFirst(); }
+
   void SeekToLast() override { iter_.SeekToLast(); }
+
   void Next() override { iter_.Next(); }
+
   void Prev() override { iter_.Prev(); }
+
   Slice key() const override { return GetLengthPrefixedSlice(iter_.key()); }
+
   Slice value() const override {
     Slice key_slice = GetLengthPrefixedSlice(iter_.key());
     return GetLengthPrefixedSlice(key_slice.data() + key_slice.size());
@@ -75,18 +84,21 @@ Iterator* MemTable::NewIterator() { return new MemTableIterator(&table_); }
 
 void MemTable::Add(SequenceNumber s, ValueType type, const Slice& key,
                    const Slice& value) {
+
   // Format of an entry is concatenation of:
   //  key_size     : varint32 of internal_key.size()
   //  key bytes    : char[internal_key.size()]
   //  tag          : uint64((sequence << 8) | type)
   //  value_size   : varint32 of value.size()
   //  value bytes  : char[value.size()]
+
   size_t key_size = key.size();
   size_t val_size = value.size();
   size_t internal_key_size = key_size + 8;
   const size_t encoded_len = VarintLength(internal_key_size) +
                              internal_key_size + VarintLength(val_size) +
                              val_size;
+
   //* 分配内存并将数据按照下图格式组织之后放入到该段内存
   //* | key_len | key | sequence_value_type | value_len | value |
   char* buf = arena_.Allocate(encoded_len);

@@ -103,6 +103,10 @@ inline Slice ExtractUserKey(const Slice& internal_key) {
 
 // A comparator for internal keys that uses a specified comparator for
 // the user key portion and breaks ties by decreasing sequence number.
+//
+// 一个用于内部键的比较器，它使用一个指定的比较器用于
+// 用户键部分，并通过递减序列号来打破平局。
+//
 class InternalKeyComparator : public Comparator {
  private:
   const Comparator* user_comparator_;
@@ -121,6 +125,8 @@ class InternalKeyComparator : public Comparator {
 };
 
 // Filter policy wrapper that converts from internal keys to user keys
+// 过滤策略包装器，将内部密钥转换为用户密钥
+
 class InternalFilterPolicy : public FilterPolicy {
  private:
   const FilterPolicy* const user_policy_;
@@ -135,6 +141,7 @@ class InternalFilterPolicy : public FilterPolicy {
 // Modules in this directory should keep internal keys wrapped inside
 // the following class instead of plain strings so that we do not
 // incorrectly use string comparisons instead of an InternalKeyComparator.
+//
 //* 这个目录中的模块应该把内部的键包在
 //* 而不是普通的字符串，这样我们就不会
 //* 错误地使用字符串比较而不是InternalKeyComparator。

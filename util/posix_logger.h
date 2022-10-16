@@ -26,6 +26,10 @@ class PosixLogger final : public Logger {
   // Creates a logger that writes to the given file.
   //
   // The PosixLogger instance takes ownership of the file handle.
+  //*
+  //* 创建一个写入给定文件的记录器。
+  //*
+  //* PosixLogger实例取得文件句柄的所有权。
   explicit PosixLogger(std::FILE* fp) : fp_(fp) { assert(fp != nullptr); }
 
   ~PosixLogger() override { std::fclose(fp_); }
@@ -49,6 +53,8 @@ class PosixLogger final : public Logger {
 
     // We first attempt to print into a stack-allocated buffer. If this attempt
     // fails, we make a second attempt with a dynamically allocated buffer.
+    //* 我们首先尝试打印到一个堆栈分配的缓冲区。如果这个尝试
+    //* 失败，我们就用一个动态分配的缓冲区进行第二次尝试。
     constexpr const int kStackBufferSize = 512;
     char stack_buffer[kStackBufferSize];
     static_assert(sizeof(stack_buffer) == static_cast<size_t>(kStackBufferSize),

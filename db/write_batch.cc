@@ -54,7 +54,9 @@ Status WriteBatch::Iterate(Handler* handler) const {
     input.remove_prefix(1);
     switch (tag) {
       case kTypeValue:
-        if (GetLengthPrefixedSlice(&input, &key) &&
+        if (GetLengthPrefixedSlice(&input, `
+        
+        &key) &&
             GetLengthPrefixedSlice(&input, &value)) {
           handler->Put(key, value);
         } else {
@@ -96,8 +98,17 @@ void WriteBatchInternal::SetSequence(WriteBatch* b, SequenceNumber seq) {
 }
 
 void WriteBatch::Put(const Slice& key, const Slice& value) {
+  //* 单个 batch 容纳的 key/value 数量
+  //* EncodeFixed32(&b->rep_[8], b->rep.data() + 8);
+  //* rep_[8 - 12] 用来容纳单个 write_batch 最多可以承受的 key-value 数量
+  //* 是一个 uint32_t 的值
   WriteBatchInternal::SetCount(this, WriteBatchInternal::Count(this) + 1);
+  //* rep_.push_back(staic_cast<char>(kTypeValue)) 用来分割 key_value.
+  //* kTypeValue = 0x1.
   rep_.push_back(static_cast<char>(kTypeValue));
+  //* | kTypeValue(0x1) | key-size | key-data() | value-size | value-data() |
+  //* kTypeValue: 定长, 只占一个字节
+  //* key-size: 通过 varint 编解码方法可以轻松解码
   PutLengthPrefixedSlice(&rep_, key);
   PutLengthPrefixedSlice(&rep_, value);
 }
@@ -143,6 +154,7 @@ void WriteBatchInternal::SetContents(WriteBatch* b, const Slice& contents) {
 
 void WriteBatchInternal::Append(WriteBatch* dst, const WriteBatch* src) {
   SetCount(dst, Count(dst) + Count(src));
+  //* kHeader = 12;
   assert(src->rep_.size() >= kHeader);
   dst->rep_.append(src->rep_.data() + kHeader, src->rep_.size() - kHeader);
 }

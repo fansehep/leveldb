@@ -203,6 +203,8 @@ struct LEVELDB_EXPORT ReadOptions {
 
   // Should the data read for this iteration be cached in memory?
   // Callers may wish to set this field to false for bulk scans.
+  // 本次迭代读取的数据是否应该缓存在内存中？
+  //调用者可能希望在批量扫描时将此字段设置为false。
   bool fill_cache = true;
 
   // If "snapshot" is non-null, read as of the supplied snapshot

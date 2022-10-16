@@ -11,6 +11,9 @@
 // The FALLTHROUGH_INTENDED macro can be used to annotate implicit fall-through
 // between switch labels. The real definition should be provided externally.
 // This one is a fallback version for unsupported compilers.
+//* FALLTHROUGH_INTENDED宏可以用来注解开关标签之间的隐式穿透。
+//* 交换机标签之间的隐式落差。真正的定义应该由外部提供。
+//* 这个是为不支持的编译器提供的后备版本。
 #ifndef FALLTHROUGH_INTENDED
 #define FALLTHROUGH_INTENDED \
   do {                       \
@@ -27,6 +30,7 @@ uint32_t Hash(const char* data, size_t n, uint32_t seed) {
   uint32_t h = seed ^ (n * m);
 
   // Pick up four bytes at a time
+  //* 一次拾取四个字节
   while (data + 4 <= limit) {
     uint32_t w = DecodeFixed32(data);
     data += 4;

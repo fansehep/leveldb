@@ -88,6 +88,8 @@ class Version {
 
   // Reference count management (so Versions do not disappear out from
   // under live iterators)
+  // 引用计数管理（因此版本不会在活的迭代器下消失）。
+  // 在活的迭代器下消失)
   void Ref();
   void Unref();
 

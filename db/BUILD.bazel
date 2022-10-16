@@ -1,4 +1,5 @@
 package(default_visibility = ["//visibility:public"])
+load("//:copts.bzl", "LEVELDB_FLAGS")
 
 cc_library(
     name = "db_lib",
@@ -20,6 +21,7 @@ cc_library(
         "//helpers/memenv:mem_lib",
         "@com_google_googletest//:gtest_main",
     ],
+    copts = LEVELDB_FLAGS,
 )
 
 cc_binary(
@@ -93,6 +95,10 @@ cc_test(
     srcs = ["skiplist_test.cc"],
     deps = [":db_lib",
             "//helpers/memenv:mem_lib"],
+    copts = [
+        "-g",
+        "-O0",
+    ],
 )
 
 cc_test(

@@ -77,6 +77,11 @@ struct DBImpl::CompactionState {
   // will never have to service a snapshot below smallest_snapshot.
   // Therefore if we have seen a sequence number S <= smallest_snapshot,
   // we can drop all entries for the same key with sequence numbers < S.
+  //*
+  //* 序列号< smallest_snapshot并不重要，因为我们
+  //* 我们永远不需要为一个低于smallest_snapshot的快照提供服务。
+  //* 因此，如果我们看到一个序列号S<= smallest_snapshot。
+  //* 我们就可以放弃序列号小于S的同一键的所有条目。
   SequenceNumber smallest_snapshot;
 
   std::vector<Output> outputs;
@@ -194,18 +199,22 @@ Status DBImpl::NewDB() {
   if (!s.ok()) {
     return s;
   }
+
   {
     log::Writer log(file);
     std::string record;
     new_db.EncodeTo(&record);
     s = log.AddRecord(record);
+
     if (s.ok()) {
       s = file->Sync();
     }
+
     if (s.ok()) {
       s = file->Close();
     }
   }
+
   delete file;
   if (s.ok()) {
     // Make "CURRENT" file that points to the new manifest file.
@@ -226,15 +235,19 @@ void DBImpl::MaybeIgnoreError(Status* s) const {
 }
 
 void DBImpl::RemoveObsoleteFiles() {
+  //* 简单的取消警告
+  //* 
   mutex_.AssertHeld();
 
   if (!bg_error_.ok()) {
     // After a background error, we don't know whether a new version may
     // or may not have been committed, so we cannot safely garbage collect.
+    //* 如果后台线程发生错误, 我们并不知道一个新的版本是否 committed,
     return;
   }
 
   // Make a set of all of the live files
+  //* 将所有的正在使用的文件做成一个集合
   std::set<uint64_t> live = pending_outputs_;
   versions_->AddLiveFiles(&live);
 
@@ -272,10 +285,13 @@ void DBImpl::RemoveObsoleteFiles() {
       }
 
       if (!keep) {
+
         files_to_delete.push_back(std::move(filename));
+
         if (type == kTableFile) {
           table_cache_->Evict(number);
         }
+
         Log(options_.info_log, "Delete type=%d #%lld\n", static_cast<int>(type),
             static_cast<unsigned long long>(number));
       }
@@ -285,34 +301,55 @@ void DBImpl::RemoveObsoleteFiles() {
   // While deleting all files unblock other threads. All files being deleted
   // have unique names which will not collide with newly created files and
   // are therefore safe to delete while allowing other threads to proceed.
+  //*
+  //* 在删除所有文件的同时，解除对其他线程的封锁。所有被删除的文件
+  //* 都有独特的名字，不会与新创建的文件发生冲突，因此在允许其他线程继续工作的同时，可以安全地删除这些文件。
+  //* 因此，在允许其他线程继续工作的同时，可以安全地进行删除。
   mutex_.Unlock();
   for (const std::string& filename : files_to_delete) {
     env_->RemoveFile(dbname_ + "/" + filename);
   }
+  //*
   mutex_.Lock();
 }
 
 Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
+  /*
+   * 这里看起来就是为了警告
+   */
   mutex_.AssertHeld();
 
   // Ignore error from CreateDir since the creation of the DB is
   // committed only when the descriptor is created, and this directory
   // may already exist from a previous failed creation attempt.
+  /*
+   * 一个有效的办法就是先确认目录是否存在,
+   *  if dir.exist() {
+   *    continue;
+   *  }
+   *  else {
+   *    create_dir();  
+   *  }
+   */
   env_->CreateDir(dbname_);
   assert(db_lock_ == nullptr);
+  //* 锁住/打开 一个 path/LOG 文件, 
   Status s = env_->LockFile(LockFileName(dbname_), &db_lock_);
   if (!s.ok()) {
     return s;
   }
-
+  //* 文件是否存在
   if (!env_->FileExists(CurrentFileName(dbname_))) {
+    //* 如果不存在就创建 options_.create_if_missing(传入 DB 参数)
     if (options_.create_if_missing) {
       Log(options_.info_log, "Creating DB %s since it was missing.",
           dbname_.c_str());
+      //* 新建 DB
       s = NewDB();
       if (!s.ok()) {
         return s;
       }
+      //*
     } else {
       return Status::InvalidArgument(
           dbname_, "does not exist (create_if_missing is false)");
@@ -349,6 +386,7 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
   uint64_t number;
   FileType type;
   std::vector<uint64_t> logs;
+
   for (size_t i = 0; i < filenames.size(); i++) {
     if (ParseFileName(filenames[i], &number, &type)) {
       expected.erase(number);
@@ -356,6 +394,7 @@ Status DBImpl::Recover(VersionEdit* edit, bool* save_manifest) {
         logs.push_back(number);
     }
   }
+
   if (!expected.empty()) {
     char buf[50];
     std::snprintf(buf, sizeof(buf), "%d missing files; e.g.",
@@ -526,6 +565,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   pending_outputs_.insert(meta.number);
   //* 生成一个 MemTable 迭代器, 实际调用的是底层SkipList 的迭代器
   Iterator* iter = mem->NewIterator();
+
   Log(options_.info_log, "Level-0 table #%llu: started",
       (unsigned long long)meta.number);
 
@@ -541,6 +581,8 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
       (unsigned long long)meta.number, (unsigned long long)meta.file_size,
       s.ToString().c_str());
   delete iter;
+
+  //*
   pending_outputs_.erase(meta.number);
 
   // Note that if file_size is zero, the file has been deleted and
@@ -568,10 +610,18 @@ void DBImpl::CompactMemTable() {
   assert(imm_ != nullptr);
 
   // Save the contents of the memtable as a new Table
+  // 将memtable的内容保存为一个新的表。
   VersionEdit edit;
+
+  //
   Version* base = versions_->current();
+
+  //
   base->Ref();
+
+  //
   Status s = WriteLevel0Table(imm_, &edit, base);
+
   base->Unref();
 
   if (s.ok() && shutting_down_.load(std::memory_order_acquire)) {
@@ -1140,12 +1190,13 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
                    std::string* value) {
   Status s;
   MutexLock l(&mutex_);
-  //* SequenceNumber is uint64_t.
-  //* 是一个 64 位的整数, 其中最高8位没有使用, 实际只使用56位, 最后一个字节
-  //* 用来存储该数据的值类型
+  // SequenceNumber is uint64_t.
+  // 是一个 64 位的整数, 其中最高8位没有使用, 实际只使用56位, 最后一个字节
+  // 用来存储该数据的值类型
   SequenceNumber snapshot;
+
   if (options.snapshot != nullptr) {
-    //* 获取Get操作所对应的 SequenceNumber
+    // 获取Get操作所对应的 SequenceNumber
     snapshot =
         static_cast<const SnapshotImpl*>(options.snapshot)->sequence_number();
   } else {
@@ -1166,8 +1217,8 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   {
     mutex_.Unlock();
     // First look in the memtable, then in the immutable memtable (if any).
-    //? 先从 memtable 中寻找, 找不到再去 immutable memtable.
-    //? 
+    // 先从 memtable 中寻找, 找不到再去 immutable memtable.
+    //
     LookupKey lkey(key, snapshot);
     if (mem->Get(lkey, value, &s)) {
       // Done
@@ -1263,21 +1314,22 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
     // Add to log and apply to memtable.  We can release the lock
     // during this phase since &w is currently responsible for logging
     // and protects against concurrent loggers and concurrent writes
-    // into mem_.
-    // 添加到日志并应用到memtable。 我们可以在这个阶段释放锁
-    // 在这个阶段，因为&w目前负责记录
-    // 并防止并发的记录器和并发的写操作
-    // 进入mem_。
+    //* into mem_.
+    //* 添加到日志并应用到memtable。 我们可以在这个阶段释放锁
+    //* 在这个阶段，因为&w目前负责记录
+    //* 并防止并发的记录器和并发的写操作
+    //* 进入mem_。
     {
       mutex_.Unlock();
       //* 将更新记录到日志文件并且将日志文件刷新到磁盘
       //* | SequenceNumber(8) | Count(4) | type(1) 0x0 delete / 0x1 key/value | key_len | key | value_len | value |
-      //* leveldb 每次写入时都需要预写日志
+      //* leveldb 预写日志
       status = log_->AddRecord(WriteBatchInternal::Contents(write_batch));
       bool sync_error = false;
       //* 是否启用 sync, 强制刷盘
       if (status.ok() && options.sync) {
         status = logfile_->Sync();
+        //*
         if (!status.ok()) {
           sync_error = true;
         }
@@ -1290,6 +1342,9 @@ Status DBImpl::Write(const WriteOptions& options, WriteBatch* updates) {
         // The state of the log file is indeterminate: the log record we
         // just added may or may not show up when the DB is re-opened.
         // So we force the DB into a mode where all future writes fail.
+        //* 日志文件的状态是不确定的：我们刚刚添加的日志记录在重新打开DB时可能出现，也可能不出现。
+        //* 刚刚添加的日志记录在重新打开DB时可能出现，也可能不出现。
+        //* 所以我们强制DB进入一个模式，在这个模式下，所有未来的写入都会失败。
         RecordBackgroundError(status);
       }
     }
@@ -1334,6 +1389,10 @@ WriteBatch* DBImpl::BuildBatchGroup(Writer** last_writer) {
   // Allow the group to grow up to a maximum size, but if the
   // original write is small, limit the growth so we do not slow
   // down the small write too much.
+  //*
+  //* 允许该组增长到最大尺寸，但是如果
+  //* 原先的写入量很小，就限制增长，这样我们就不会使小的写入量太慢。
+  //* 使小写的速度降低太多。
   size_t max_size = 1 << 20;
   if (size <= (128 << 10)) {
     max_size = size + (128 << 10);
@@ -1342,15 +1401,20 @@ WriteBatch* DBImpl::BuildBatchGroup(Writer** last_writer) {
   *last_writer = first;
   std::deque<Writer*>::iterator iter = writers_.begin();
   ++iter;  // Advance past "first"
+  //* 向前推进, 越过 "第一"。
   for (; iter != writers_.end(); ++iter) {
     Writer* w = *iter;
     if (w->sync && !first->sync) {
       // Do not include a sync write into a batch handled by a non-sync write.
+      //* 不要将同步写纳入由非同步写处理的批次中。
       break;
     }
 
     if (w->batch != nullptr) {
+      //* += 单个 batch.size();
       size += WriteBatchInternal::ByteSize(w->batch);
+      //* ????
+      //* 这里看起来不能 break.
       if (size > max_size) {
         // Do not make batch too big
         break;
@@ -1359,19 +1423,29 @@ WriteBatch* DBImpl::BuildBatchGroup(Writer** last_writer) {
       // Append to *result
       if (result == first->batch) {
         // Switch to temporary batch instead of disturbing caller's batch
+        //* 切换到临时批处理，而不是干扰调用者的批处理。
         result = tmp_batch_;
         assert(WriteBatchInternal::Count(result) == 0);
+        //* 将结果 append 进去,
+        //* result += | | | |;
         WriteBatchInternal::Append(result, first->batch);
       }
       WriteBatchInternal::Append(result, w->batch);
     }
+
+    //*
     *last_writer = w;
   }
+
   return result;
 }
 
 // REQUIRES: mutex_ is held
 // REQUIRES: this thread is currently at the front of the writer queue
+//*
+//* 要求：mutex_被持有。
+//* 要求：该线程目前在写程序队列的前面。
+
 Status DBImpl::MakeRoomForWrite(bool force) {
   mutex_.AssertHeld();
   assert(!writers_.empty());
@@ -1390,6 +1464,13 @@ Status DBImpl::MakeRoomForWrite(bool force) {
       // individual write by 1ms to reduce latency variance.  Also,
       // this delay hands over some CPU to the compaction thread in
       // case it is sharing the same core as the writer.
+      //* config::kL0_SlowdownWritesTrigger = 8.
+      //* 我们正接近于达到对L0文件数量的硬性限制。
+      //* L0文件的数量。 当我们遇到硬性限制时，与其将单个写操作延迟数
+      //* 当我们达到硬限制时，与其将单个写入延迟数秒，不如开始将每个
+      //* 单独写1ms以减少延迟变化。 另外。
+      //* 这个延迟将一些CPU移交给压缩线程，因为
+      //* 如果它与写入者共享同一个核心的话。
       mutex_.Unlock();
       env_->SleepForMicroseconds(1000);
       allow_delay = false;  // Do not delay a single write more than once
@@ -1401,14 +1482,19 @@ Status DBImpl::MakeRoomForWrite(bool force) {
     } else if (imm_ != nullptr) {
       // We have filled up the current memtable, but the previous
       // one is still being compacted, so we wait.
+      //*
+      //* 我们已经填满了当前的memtable，但之前的
+      //* 的仍然在压缩，所以我们要等待。
       Log(options_.info_log, "Current memtable full; waiting...\n");
       background_work_finished_signal_.Wait();
     } else if (versions_->NumLevelFiles(0) >= config::kL0_StopWritesTrigger) {
       // There are too many level-0 files.
+      //* 有太多的0级文件。
       Log(options_.info_log, "Too many L0 files; waiting...\n");
       background_work_finished_signal_.Wait();
     } else {
       // Attempt to switch to a new memtable and trigger compaction of old
+      //* 尝试切换到一个新的memtable并触发对旧memtable的压实。
       assert(versions_->PrevLogNumber() == 0);
       uint64_t new_log_number = versions_->NewFileNumber();
       WritableFile* lfile = nullptr;
@@ -1517,6 +1603,10 @@ void DBImpl::GetApproximateSizes(const Range* range, int n, uint64_t* sizes) {
 // Default implementations of convenience methods that subclasses of DB
 // can call if they wish
 Status DB::Put(const WriteOptions& opt, const Slice& key, const Slice& value) {
+  //* WriteBatch 是批量操作
+  //* 单个 Put 请求使用 WriteBatch ?
+  //* 大概率是为了简化接口吧
+  //* ...
   WriteBatch batch;
   //* 1. 将 key, value 数据写入批量操作缓存中
   batch.Put(key, value);
@@ -1537,6 +1627,7 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   //* 1. 初始化一个DBImpl 的对象, options, dbname 作为相关参数.
   DBImpl* impl = new DBImpl(options, dbname);
   impl->mutex_.Lock();
+  //* 版本初始化,
   VersionEdit edit;
   // Recover handles create_if_missing, error_if_exists
   // 恢复 create_if_missing, error_if_exists
@@ -1546,13 +1637,20 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   Status s = impl->Recover(&edit, &save_manifest);
   //* 3. 进行 Recover 之后, 需要判断impl->mem_ 的制作是否为空
   //*    如果 == nullptr =>
+  //* 尝试恢复之后, 但是 impl->mem_ 却还是 == nullptr
+  //* 那么就需要新建数据表
   if (s.ok() && impl->mem_ == nullptr) {
-    // Create new log and a corresponding memtable.
-    //* 4. 建立一个新的
+    //* Create new log and a corresponding memtable.
+    //* 创建新的日志和一个相应的memtable。
+    //* new_log_number is uint64_t, 有没有可能 uint64_t 不够用??
+    //* 应该不太可能
     uint64_t new_log_number = impl->versions_->NewFileNumber();
+
+    //* 新创建一个可以写入的文件
     WritableFile* lfile;
     s = options.env->NewWritableFile(LogFileName(dbname, new_log_number),
                                      &lfile);
+    //*
     if (s.ok()) {
       edit.SetLogNumber(new_log_number);
       impl->logfile_ = lfile;
@@ -1575,7 +1673,7 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   if (s.ok()) {
     //* 清理无用的文件
     impl->RemoveObsoleteFiles();
-    //* 尝试进行依次 Compaction 操作
+    //* 尝试进行一次 Compaction 操作
     impl->MaybeScheduleCompaction();
   }
   impl->mutex_.Unlock();

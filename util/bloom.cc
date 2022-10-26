@@ -18,6 +18,7 @@ class BloomFilterPolicy : public FilterPolicy {
  public:
   explicit BloomFilterPolicy(int bits_per_key) : bits_per_key_(bits_per_key) {
     // We intentionally round down to reduce probing cost a little bit
+    // 我们有意四舍五入，以减少一点探测成本
     k_ = static_cast<size_t>(bits_per_key * 0.69);  // 0.69 =~ ln(2)
     if (k_ < 1) k_ = 1;
     if (k_ > 30) k_ = 30;
@@ -35,6 +36,7 @@ class BloomFilterPolicy : public FilterPolicy {
     //
     // 对于小的n，我们可以看到一个非常高的假阳性率。 修复它
     // 通过强制执行最小的Bloom filter长度。
+    //
     if (bits < 64) bits = 64;
 
     size_t bytes = (bits + 7) / 8;
@@ -45,11 +47,13 @@ class BloomFilterPolicy : public FilterPolicy {
     dst->push_back(static_cast<char>(k_));  // Remember # of probes in filter
     char* array = &(*dst)[init_size];
     for (int i = 0; i < n; i++) {
+      //
       // Use double-hashing to generate a sequence of hash values.
       // See analysis in [Kirsch,Mitzenmacher 2006].
       //
       // 使用双重哈希法生成一连串的哈希值。
       // 见[Kirsch,Mitzenmacher 2006]中的分析。
+      //
       uint32_t h = BloomHash(keys[i]);
       const uint32_t delta = (h >> 17) | (h << 15);  // Rotate right 17 bits
       for (size_t j = 0; j < k_; j++) {
@@ -59,7 +63,14 @@ class BloomFilterPolicy : public FilterPolicy {
       }
     }
   }
-
+  //
+  // Silce key = "123123123";
+  // bloom_filter = Slice(0, 1024);
+  // keyMayMatch:
+  //  size_t len = 1024;
+  //  size_t bits = 1023 * 8;
+  //  const size_t k = 0;
+  //
   bool KeyMayMatch(const Slice& key, const Slice& bloom_filter) const override {
     const size_t len = bloom_filter.size();
     if (len < 2) return false;
@@ -71,6 +82,9 @@ class BloomFilterPolicy : public FilterPolicy {
     // bloom filters created using different parameters.
     // 使用编码的k，这样我们就可以读取由
     // 使用不同参数创建的Bloom过滤器。
+    //
+    // array 取到最后一个值
+    //
     const size_t k = array[len - 1];
     if (k > 30) {
       // Reserved for potentially new encodings for short bloom filters.

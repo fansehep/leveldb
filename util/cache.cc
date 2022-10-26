@@ -101,18 +101,19 @@ struct LRUHandle {
   }
 };
 
+//
 // We provide our own simple hash table since it removes a whole bunch
 // of porting hacks and is also faster than some of the built-in hash
 // table implementations in some of the compiler/runtime combinations
 // we have tested.  E.g., readrandom speeds up by ~5% over the g++
 // 4.4.3's builtin hashtable.
-
+//
 // 我们提供了我们自己的简单哈希表，因为它消除了一大批
 // 我们提供了自己的简单哈希表，因为它消除了一大堆移植方面的麻烦，而且比某些编译器/运行时组合中的内置哈希表更快。
 // 表的速度，而且比一些编译器/运行时组合中的内置哈希表实现要快。
 // 我们已经测试过了。 例如，readrandom比g++的速度快了~5%。
 // 4.4.3的内置哈希表。
-
+//
 class HandleTable {
  public:
   HandleTable() : length_(0), elems_(0), list_(nullptr) { Resize(); }

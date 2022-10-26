@@ -14,6 +14,9 @@
 namespace leveldb {
 
 //* leveldb 实现的内存池
+// >>__<<???
+// 看起来该内存池实现是与某个类绑定一起的.
+// 当这个类发生析构的时候, 其实内存也就释放了c
 class Arena {
  public:
   Arena();
@@ -30,10 +33,12 @@ class Arena {
 
   // Allocate memory with the normal alignment guarantees provided by malloc.
   //* 
+  // 以malloc提供的正常对齐保证来分配内存。
+  //* 
   char* AllocateAligned(size_t bytes);
 
-  // Returns an estimate of the total memory usage of data allocated
-  // by the arena.
+  // Returns an estimate of the total memory usage of data allocated by the arena.
+  // 返回竞技场分配的数据的总内存使用量的估计值
   size_t MemoryUsage() const {
     return memory_usage_.load(std::memory_order_relaxed);
   }
@@ -65,6 +70,11 @@ inline char* Arena::Allocate(size_t bytes) {
   // The semantics of what to return are a bit messy if we allow
   // 0-byte allocations, so we disallow them here (we don't need
   // them for our internal use).
+  //
+  // 如果我们允许返回什么，语义就会有点混乱
+  // 0字节的分配，所以我们在这里不允许它们（我们不需要
+  // 我们的内部使用不需要它们）。
+  //
   assert(bytes > 0);
   if (bytes <= alloc_bytes_remaining_) {
     char* result = alloc_ptr_;

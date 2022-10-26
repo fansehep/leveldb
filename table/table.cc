@@ -256,12 +256,22 @@ uint64_t Table::ApproximateOffsetOf(const Slice& key) const {
       // Strange: we can't decode the block handle in the index block.
       // We'll just return the offset of the metaindex block, which is
       // close to the whole file size for this case.
+      //
+      // 很奇怪：我们不能对索引块中的块柄进行解码。
+      // 我们只是返回元索引块的偏移量，这在这种情况下
+      // 在这种情况下，接近于整个文件的大小。
+      //
       result = rep_->metaindex_handle.offset();
     }
   } else {
     // key is past the last key in the file.  Approximate the offset
     // by returning the offset of the metaindex block (which is
     // right near the end of the file).
+    //
+    //
+    // 键已超过文件中的最后一个键。 近似的偏移量
+    // 通过返回元索引块的偏移量（它就在文件的末尾）。
+    //
     result = rep_->metaindex_handle.offset();
   }
   delete index_iter;

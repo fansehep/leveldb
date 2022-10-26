@@ -18,8 +18,11 @@ Arena::~Arena() {
 }
 
 char* Arena::AllocateFallback(size_t bytes) {
-  //* 如果需要分配的空间 > kBlockSize/4,
-  //* 那么直接按照需要的空间重新分配一个block, 即可
+
+  //
+  // 如果需要分配的空间 > kBlockSize/4,
+  // 那么直接按照需要的空间重新分配一个block, 即可
+  //
   if (bytes > kBlockSize / 4) {
     // Object is more than a quarter of our block size.  Allocate it separately
     // to avoid wasting too much space in leftover bytes.
@@ -27,10 +30,14 @@ char* Arena::AllocateFallback(size_t bytes) {
     return result;
   }
 
-  //* 否则分配一个 kBlockSize大小的空间,
-  //* 并且在新的Block上分配所需空间
+  //
+  //
+  //
+  // 否则分配一个 kBlockSize大小的空间,
+  // 并且在新的Block上分配所需空间
   // We waste the remaining space in the current block.
-  //* 丢弃当前块中的剩余空间, 重新分配一个新的
+  // 丢弃当前块中的剩余空间, 重新分配一个新的
+  //
   alloc_ptr_ = AllocateNewBlock(kBlockSize);
   alloc_bytes_remaining_ = kBlockSize;
 

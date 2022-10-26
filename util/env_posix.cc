@@ -310,12 +310,14 @@ class PosixMmapReadableFile final : public RandomAccessFile {
   }
 
  private:
+
   char* const mmap_base_;
   const size_t length_;
   Limiter* const mmap_limiter_;
   const std::string filename_;
 };
 
+//
 class PosixWritableFile final : public WritableFile {
  public:
   PosixWritableFile(std::string filename, int fd)
@@ -393,6 +395,7 @@ class PosixWritableFile final : public WritableFile {
   }
 
  private:
+
   Status FlushBuffer() {
     Status status = WriteUnbuffered(buf_, pos_);
     pos_ = 0;
@@ -421,6 +424,7 @@ class PosixWritableFile final : public WritableFile {
     }
 
     int fd = ::open(dirname_.c_str(), O_RDONLY | kOpenBaseFlags);
+
     if (fd < 0) {
       status = PosixError(dirname_, errno);
     } else {
@@ -464,9 +468,11 @@ class PosixWritableFile final : public WritableFile {
   // Returns "." if the path does not contain any directory separator.
   static std::string Dirname(const std::string& filename) {
     std::string::size_type separator_pos = filename.rfind('/');
+    //
     if (separator_pos == std::string::npos) {
       return std::string(".");
     }
+
     // The filename component should not contain a path separator. If it does,
     // the splitting was done incorrectly.
     assert(filename.find('/', separator_pos + 1) == std::string::npos);
@@ -474,17 +480,29 @@ class PosixWritableFile final : public WritableFile {
     return filename.substr(0, separator_pos);
   }
 
+  //
   // Extracts the file name from a path pointing to a file.
   //
   // The returned Slice points to |filename|'s data buffer, so it is only valid
   // while |filename| is alive and unchanged.
+  // 从指向一个文件的路径中提取文件名。
+  //
+  // 返回的Slice指向|filename|的数据缓冲区，所以它只在|filename|活着并且没有变化的时候有效。
+  // 当|filename|是活的并且没有变化时。
+  //
+  //
   static Slice Basename(const std::string& filename) {
     std::string::size_type separator_pos = filename.rfind('/');
     if (separator_pos == std::string::npos) {
       return Slice(filename);
     }
+    //
     // The filename component should not contain a path separator. If it does,
     // the splitting was done incorrectly.
+    //
+    // 文件名组件不应该包含路径分隔符。如果有的话。
+    // 分割工作做得不正确。
+    //
     assert(filename.find('/', separator_pos + 1) == std::string::npos);
 
     return Slice(filename.data() + separator_pos + 1,
@@ -513,6 +531,7 @@ int LockOrUnlock(int fd, bool lock) {
   //* F_WRLCK, 写锁
   //* F_UNLCK, 不上锁 / 解锁
   file_lock_info.l_type = (lock ? F_WRLCK : F_UNLCK);
+  //
   //* 跳转到哪里
   //* SEEK_SET 调转到指定位置
   file_lock_info.l_whence = SEEK_SET;
@@ -524,12 +543,14 @@ int LockOrUnlock(int fd, bool lock) {
 }
 
 // Instances are thread-safe because they are immutable.
+// 实例是线程安全的，因为它们是不可变的。
 class PosixFileLock : public FileLock {
  public:
   PosixFileLock(int fd, std::string filename)
       : fd_(fd), filename_(std::move(filename)) {}
 
   int fd() const { return fd_; }
+
   const std::string& filename() const { return filename_; }
 
  private:
